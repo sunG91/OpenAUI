@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 设计规范：参考现代 AI 聊天输入栏，便于后续模块化扩展 */
+:root {
+  --input-bar-bg: #fafafa;
+  --input-bar-border: #e5e7eb;
+  --input-bar-radius: 12px;
+  --input-placeholder: #9ca3af;
+  --skill-btn-bg: #f3f4f6;
+  --skill-btn-text: #374151;
+  --skill-btn-hover: #e5e7eb;
+  --sidebar-bg: #f9fafb;
+  --tag-beta: #6b7280;
+  --tag-free: #3b82f6;
+  --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-input-hover: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-white text-gray-800 antialiased;
+  }
+}
+
+/* 全局自定义滚动条：更细 + 主色蓝，与主色调一致 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.75);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(148, 163, 184, 0.9);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

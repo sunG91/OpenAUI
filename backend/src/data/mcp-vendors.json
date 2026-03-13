@@ -1,0 +1,12 @@
+{
+  "httpVendors": [
+    {
+      "id": "aliyun-bailian",
+      "label": "阿里云百炼 MCP",
+      "url": "",
+      "vendorId": "aliyun-bailian",
+      "desc": "来自阿里云百炼 MCP 市场的云端服务，支持通过 HTTP 进行 tools/list 与 tools/call 调用。"
+    }
+  ]
+}
+

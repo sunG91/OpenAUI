@@ -1,0 +1,107 @@
+# =========================
+# OpenAUI - Git Ignore
+# =========================
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+.idea/
+.vscode/
+*.iml
+
+# --- Logs / temp ---
+*.log
+logs/
+log/
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# 常见本地密钥/配置文件命名（防止放错目录被提交）
+apikeys.json
+**/apikeys.json
+**/*apikey*.json
+
+*.pem
+*.key
+*.p12
+*.pfx
+
+# --- Node / Frontend ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+frontend/node_modules/
+frontend/.cache/
+frontend/.parcel-cache/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+frontend/.eslintcache
+frontend/.vite/
+
+# Vite / webpack common
+dist/
+build/
+coverage/
+.cache/
+.vite/
+
+# --- Python / Backend (if any) ---
+__pycache__/
+*.py[cod]
+*.pyd
+.Python
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+htmlcov/
+
+venv/
+.venv/
+ENV/
+env/
+
+# --- Backend runtime data ---
+# 如果 backend/data 是本地运行产生的数据库/缓存，请按需保留或忽略；
+# 这里默认忽略常见运行时文件，但保留仓库里已有的占位/规则文件。
+backend/data/*
+!backend/data/.gitignore
+
+# --- Heavy audio / ffmpeg runtimes (本地依赖，仓库不带二进制) ---
+backend/piper/
+backend/ffmpeg/
+backend/runtime/
+backend/whisper/
+backend/vosk/model/
+
+# --- Packaging / archives ---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+
+# --- Misc ---
+*.bak
+*.old
+*.orig
+

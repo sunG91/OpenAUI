@@ -1,0 +1,64 @@
+# Open AUI
+
+> 让 AI 真正「动手」操作电脑的开源智能助手框架
+
+## 简介
+
+Open AUI（Open AI User Interface）是一款开源多模态 AI 操作框架，支持：
+- 语音交互（含唤醒）
+- 控制台命令执行
+- 浏览器网页自动化
+- 任务拆分与多模型调度
+- 行为记忆与会话整理
+- Chat / AUI 双模式
+
+## 文档
+
+- [产品设计文档](./docs/open-aui-产品设计文档.md) —— 功能、交互与架构说明
+- [English README](./README.en.md) —— Brief English overview for GitHub
+
+## 快速开始
+
+### 方式一：Electron 窗口应用（推荐）
+
+双击 **`启动 Open AUI.bat`** 一键启动；或手动：
+
+```bash
+cd frontend
+npm install
+npm run electron:dev
+```
+
+会打开独立桌面窗口，体验类似 QQ、VS Code。WebSocket 内置在应用内，无需单独启动后端。
+
+### 方式二：浏览器开发模式
+
+分别启动后端和前端，在浏览器中访问：
+
+```bash
+# 终端 1：启动后端
+cd backend && npm install && npm start
+
+# 终端 2：启动前端
+cd frontend && npm install && npm run dev
+```
+
+浏览器访问 http://localhost:5173
+
+### 打包为安装包
+
+```bash
+cd frontend
+npm install
+npm run pack            # 构建并生成 release 目录下的安装包
+```
+
+> 说明：当前后端为回显模式，发送内容会原样返回，后续将接入 AI 模型。
+>
+> **常见问题**：
+> - 前端报错 `@rollup/rollup-win32-x64-msvc`：在 frontend 目录执行 `npm install @rollup/rollup-win32-x64-msvc`
+> - Electron 报错 EBUSY：**完全退出 Cursor/VS Code**，在资源管理器中双击 **`安装依赖.bat`**（勿在 Cursor 终端运行）。若仍失败，可将项目移动到 `C:\openAUI` 等纯英文路径再试
+
+---
+
+© 盐城小寒科技有限责任公司

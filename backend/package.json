@@ -1,0 +1,22 @@
+{
+  "name": "openaui-backend",
+  "version": "0.1.0",
+  "description": "Open AUI 后端 WebSocket 服务",
+  "license": "Apache-2.0",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "edge-tts-node": "^1.5.7",
+    "express": "^4.21.0",
+    "https-proxy-agent": "^8.0.0",
+    "iconv-lite": "^0.6.3",
+    "multer": "^2.0.2",
+    "openai": "^4.73.0",
+    "ws": "^8.18.0",
+    "yaml": "^2.4.0"
+  }
+}

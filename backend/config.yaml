@@ -1,0 +1,13 @@
+# Open AUI 后端配置
+# 文档：config.yaml
+
+server:
+  port: 9527                    # WebSocket 服务端口
+  host: "0.0.0.0"               # 监听地址，0.0.0.0 表示允许外部连接
+
+# 密钥验证配置
+auth:
+  requireKey: true               # 是否要求密钥验证，false 则无需填写密钥即可连接
+  allowedKeys:                   # 允许的密钥列表
+    - "openaui-default-key"
+    - "dev-2026"

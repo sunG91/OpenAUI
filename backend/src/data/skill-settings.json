@@ -1,0 +1,11 @@
+{
+  "quick": {
+    "vendorId": "deepseek",
+    "modelId": "deepseek-chat"
+  },
+  "mcp": {
+    "enabledServerIds": [
+      "aliyun-bailian"
+    ]
+  }
+}

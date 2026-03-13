@@ -1,0 +1,48 @@
+{
+  "name": "openaui-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open AUI Electron 桌面应用",
+  "license": "Apache-2.0",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "kill-ports": "node scripts/kill-ports.js",
+    "gen:icon": "node scripts/generate-icon.js",
+    "electron:dev": "node scripts/kill-ports.js && npm run gen:icon && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "vite build && npm run gen:icon && electron-builder",
+    "pack": "vite build && npm run gen:icon && electron-builder --dir"
+  },
+  "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.59.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.28.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "pngjs": "^7.0.0",
+    "png-to-ico": "^2.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "productName": "Open AUI",
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "build/icon.ico"
+    }
+  }
+}

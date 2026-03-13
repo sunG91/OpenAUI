@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "id": "aliyun-bailian",
+      "name": "阿里云百炼 MCP",
+      "type": "streamableHttp",
+      "url": "https://dashscope.aliyuncs.com/api/v1/mcps/market-cmapi00073266/mcp",
+      "command": "",
+      "args": "",
+      "dir": "",
+      "port": 0,
+      "enabled": true,
+      "notes": "来自阿里云百炼 MCP 市场的云端服务，支持通过 HTTP 进行 tools/list 与 tools/call 调用。"
+    }
+  ]
+}
