@@ -4,6 +4,23 @@
 >
 > 建议你每次更新本文件后，同步复制到 `frontend/public/docs/CHANGELOG.md`（确保应用内能看到最新内容）。
 
+## 0.1.3（2026-03-14）
+
+- 新增：流式输出模块 `StreamingText`，所有流式回答统一走此组件；逐字吐出、速度随 AI 返回节奏自适应，带渐变光标与最后一字弹出动画。
+- 优化：SUI 识别结果区使用 `StreamingText` 展示流式内容；流式时优先显示已返回内容，不再被「正在识别…」遮挡。
+- 优化：SUI 右侧「AI 识别结果」高度固定、超出可纵向滚动；回答时自动滚到底部，用户主动上滑查看时保持位置。
+- 修复：流式接口支持 Content-Type 为 application/json 时的非流式回包与 120 秒超时，避免长时间卡在「正在识别…」。
+
+## 0.1.2（2026-03-14）
+
+- 新增：技能「SUI」（看见 UI），截屏或上传图片转 base64 发送给视觉模型识别；技能面板内 SUI 测试区仅展示带「视觉识别/图片分析」标签的模型。
+- 新增：对话输入栏增加 SUI 技能按钮，点击可跳转技能面板并激活 SUI 模块。
+- 优化：Electron 下截屏必须可用，主进程使用 setDisplayMediaRequestHandler + desktopCapturer 接管 getDisplayMedia，preload 暴露 getDesktopSources 作为后备。
+- 修复：更新记录弹窗内容区可正常向下滚动、触发「向下滚动加载更多」。
+- 新增：首次启动时自动初始化本地配置文件（apikeys.json、voice-settings.json、skill-settings.json、mcp-settings.json、mcp-http-credentials.json），无需手动创建。
+- 新增：根目录 .gitignore 与 backend/data/.gitignore 补充，忽略本地配置、API Key、piper/ffmpeg/whisper/vosk 等大体积运行时，便于推送 GitHub。
+- 新增：README.en.md 英文版说明，便于 GitHub 国际用户阅读。
+
 ## 0.1.1（2026-03-13）
 
 - 新增：MCP 配置与测试面板支持「MCP 调用 / 模型测试」两种模式，便于分别手动调试工具和纯模型自动调 tools。

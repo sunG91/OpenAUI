@@ -36,11 +36,11 @@ function mountTestModelRoutes(app) {
             const delta = chunk.choices?.[0]?.delta ?? {};
             const reasoning = delta.reasoning_content ?? '';
             const text = delta.content ?? '';
-            if (reasoning || text) {
-              res.write('data: ' + JSON.stringify({ reasoning_content: reasoning, content: text }) + '\n\n');
-            }
+            res.write('data: ' + JSON.stringify({ reasoning_content: reasoning, content: text }) + '\n\n');
+            if (typeof res.flush === 'function') res.flush();
           }
           res.write('data: [DONE]\n\n');
+          if (typeof res.flush === 'function') res.flush();
         } catch (streamErr) {
           const errMsg = streamErr?.message || String(streamErr);
           res.write('data: ' + JSON.stringify({ error: errMsg }) + '\n\n');

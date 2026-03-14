@@ -12,6 +12,9 @@ export const MODEL_VENDORS = [
 /** 模型能力标签数据集（可选：聊天、图片分析、视频分析、推理等） */
 export const MODEL_TAGS = ['聊天', '图片分析', '视频分析', '推理', '视觉识别', 'tools'];
 
+/** 拥有视觉能力的标签（SUI 等仅允许选这些模型） */
+export const VISION_TAGS = ['视觉识别', '图片分析'];
+
 /** 各厂商可调用的模型（按厂商 id 索引；tags 为能力标签数组；stream 为是否支持流式输出） */
 export const VENDOR_MODELS = {
   siliconflow: [
@@ -41,4 +44,10 @@ export const VENDOR_MODELS = {
     { id: 'deepseek-coder', name: 'deepseek-coder', tags: ['聊天'], stream: true },
   ],
 };
+
+/** 判断模型是否支持视觉（用于 SUI 等仅视觉模型） */
+export function isVisionModel(m) {
+  if (!m || !Array.isArray(m.tags)) return false;
+  return m.tags.some((tag) => VISION_TAGS.includes(tag));
+}
 

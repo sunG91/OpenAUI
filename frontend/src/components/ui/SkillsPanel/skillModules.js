@@ -13,5 +13,9 @@ export const SKILL_MODULES = [
     label: 'MCP',
     desc: '在技能测试中启用并联动 MCP 服务',
   },
-  // 后续可追加更多模块，如：快捷指令、预设回复等
+  {
+    id: 'sui',
+    label: 'SUI',
+    desc: '截屏转 base64 发送给视觉模型识别（看见 UI）',
+  },
 ];

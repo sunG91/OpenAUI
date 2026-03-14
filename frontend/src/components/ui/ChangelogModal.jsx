@@ -2,14 +2,29 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+/** 按 ## 标题拆成区块；第一段（标题/说明）与第一个版本合并为第一页，其余每页一个版本 */
+function splitBySections(raw) {
+  const text = (raw || '').replace(/\r\n/g, '\n').trim();
+  if (!text) return [];
+  const parts = text.split(/\n(?=## )/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return parts;
+  const firstPage = parts[0] + '\n\n' + parts[1];
+  return [firstPage, ...parts.slice(2)];
+}
+
 export function ChangelogModal({ open, onClose, title = '更新记录', src = '/docs/CHANGELOG.md' }) {
-  const PAGE_SIZE = 20;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [allLines, setAllLines] = useState([]);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [sections, setSections] = useState([]);
+  const [page, setPage] = useState(0);
   const scrollerRef = useRef(null);
 
+  const totalPages = sections.length;
+  const currentPage = Math.max(0, Math.min(page, totalPages - 1));
+  const pageContent = useMemo(() => {
+    if (!sections.length || currentPage < 0) return '';
+    return sections[currentPage];
+  }, [sections, currentPage]);
   const canRender = open && !loading && !error;
 
   useEffect(() => {
@@ -17,7 +32,7 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
     let cancelled = false;
     setLoading(true);
     setError('');
-    setVisibleCount(PAGE_SIZE);
+    setPage(0);
     fetch(src, { cache: 'no-store' })
       .then(async (r) => {
         if (!r.ok) throw new Error(`加载失败（${r.status}）`);
@@ -25,8 +40,8 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
       })
       .then((text) => {
         if (cancelled) return;
-        const raw = (text || '# 更新记录\n\n暂无记录。').replace(/\r\n/g, '\n');
-        setAllLines(raw.split('\n'));
+        const content = (text || '# 更新记录\n\n暂无记录。').trim();
+        setSections(splitBySections(content));
         queueMicrotask(() => {
           scrollerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
         });
@@ -53,21 +68,9 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open, onClose]);
 
-  const content = useMemo(() => {
-    if (!allLines.length) return '';
-    return allLines.slice(0, visibleCount).join('\n');
-  }, [allLines, visibleCount]);
-
-  const hasMore = visibleCount < allLines.length;
-
-  const maybeLoadMore = () => {
-    const el = scrollerRef.current;
-    if (!el || !hasMore) return;
-    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (distanceToBottom < 120) {
-      setVisibleCount((c) => Math.min(c + PAGE_SIZE, allLines.length));
-    }
-  };
+  useEffect(() => {
+    scrollerRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+  }, [currentPage]);
 
   if (!open) return null;
 
@@ -94,23 +97,18 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
           </button>
         </div>
 
-        <div
-          ref={scrollerRef}
-          className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
-          onScroll={maybeLoadMore}
-        >
+        <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {loading && <div className="text-xs text-[var(--input-placeholder)]">正在加载更新记录…</div>}
           {!!error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {error}
             </div>
           )}
-          {canRender && (
+          {canRender && pageContent && (
             <div className="text-xs leading-relaxed text-[var(--skill-btn-text)]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // 这是用户看的更新记录：尽量朴素，不强调代码块样式
                   pre: ({ node, ...p }) => <pre className="my-1.5 whitespace-pre-wrap break-words" {...p} />,
                   code: ({ node, inline, ...p }) => <code className={inline ? 'px-1' : ''} {...p} />,
                   p: ({ node, ...p }) => <p className="my-1.5" {...p} />,
@@ -123,17 +121,35 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
                   a: ({ node, ...p }) => <a className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" {...p} />,
                 }}
               >
-                {content}
+                {pageContent}
               </ReactMarkdown>
-
-              {hasMore && (
-                <div className="mt-3 text-[11px] text-[var(--input-placeholder)]">
-                  向下滚动加载更多…
-                </div>
-              )}
             </div>
           )}
         </div>
+
+        {canRender && totalPages > 1 && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 border-t border-[var(--input-bar-border)] px-5 py-3 bg-[#fafafa]">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage <= 0}
+              className="px-3 py-1.5 text-xs font-medium text-[var(--skill-btn-text)] rounded-lg border border-[var(--input-bar-border)] bg-white hover:bg-[var(--skill-btn-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              上一页
+            </button>
+            <span className="text-xs text-[var(--input-placeholder)]">
+              第 {currentPage + 1} / {totalPages} 页
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="px-3 py-1.5 text-xs font-medium text-[var(--skill-btn-text)] rounded-lg border border-[var(--input-bar-border)] bg-white hover:bg-[var(--skill-btn-bg)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              下一页
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

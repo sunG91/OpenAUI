@@ -26,6 +26,13 @@ const iconMcp = (
     <path d="M7 8h10M7 12h6M7 16h4" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+const iconSui = (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <path d="M8 21h8M12 17v4" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="12" cy="10" r="1.5" fill="currentColor" />
+  </svg>
+);
 const iconSuper = (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -59,10 +66,11 @@ const iconMore = (
 
 const MAX_VISIBLE_SKILLS = 3;
 
-/** 技能列表：当前仅保留一个「快速」，其他功能后续逐步上线再补充 */
+/** 技能列表：快速、MCP、SUI（看见 UI）等 */
 const DEFAULT_SKILLS = [
   { id: 'quick', icon: iconQuick, label: '快速', tag: null, tagType: 'beta' },
   { id: 'mcp', icon: iconMcp, label: 'MCP', tag: null, tagType: 'beta' },
+  { id: 'sui', icon: iconSui, label: 'SUI', tag: null, tagType: 'beta' },
 ];
 
 export function ChatInputBar({
@@ -73,6 +81,7 @@ export function ChatInputBar({
   onPlusClick,
   quickMode = false,
   mcpMode = false,
+  suiMode = false,
   placeholder = '发消息或输入「/」选择技能',
   voiceActive,
   onVoiceToggle,
@@ -218,6 +227,8 @@ export function ChatInputBar({
                 ? quickMode
                 : skill.id === 'mcp'
                 ? mcpMode
+                : skill.id === 'sui'
+                ? suiMode
                 : activeSkillId === skill.id
             }
             onClick={() => {

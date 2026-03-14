@@ -16,13 +16,28 @@ export async function testModel(payload) {
 
 /**
  * 流式调用：onChunk({ content, reasoning_content })，onDone() / onDone(error)
+ * 若后端返回 application/json（非流式），则当作一次性结果处理并调用 onChunk + onDone
  */
 export async function testModelStream(payload, { onChunk, onDone }) {
+  const TIMEOUT_MS = 120000;
+  const ctrl = new AbortController();
+  const timeoutId = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+
   const res = await fetch(`${API_BASE}/api/test-model`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...payload, stream: true })
+    body: JSON.stringify({ ...payload, stream: true }),
+    signal: ctrl.signal,
+  }).catch((e) => {
+    clearTimeout(timeoutId);
+    if (e?.name === 'AbortError') onDone(new Error('响应超时，请重试'));
+    else onDone(e);
+    return null;
   });
+
+  if (!res) return;
+  clearTimeout(timeoutId);
+
   if (!res.ok) {
     try {
       const data = await res.json();
@@ -32,6 +47,24 @@ export async function testModelStream(payload, { onChunk, onDone }) {
     }
     return;
   }
+
+  const contentType = (res.headers.get('Content-Type') || '').toLowerCase();
+  if (contentType.includes('application/json')) {
+    try {
+      const data = await res.json();
+      const reasoning = data.reasoning_content ?? '';
+      const content = data.content ?? '';
+      if (data.error) onDone(new Error(data.error));
+      else {
+        onChunk({ reasoning_content: reasoning, content });
+        onDone();
+      }
+    } catch (e) {
+      onDone(e);
+    }
+    return;
+  }
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -43,41 +76,39 @@ export async function testModelStream(payload, { onChunk, onDone }) {
       const lines = buffer.split('\n');
       buffer = lines.pop() ?? '';
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const payloadStr = line.slice(6).trim();
-          if (payloadStr === '[DONE]') {
-            onDone();
+        const trimmed = line.trimStart();
+        if (!trimmed.startsWith('data: ')) continue;
+        const payloadStr = trimmed.slice(6).trim();
+        if (payloadStr === '[DONE]') {
+          onDone();
+          return;
+        }
+        try {
+          const obj = JSON.parse(payloadStr);
+          if (obj.error) {
+            onDone(new Error(obj.error));
             return;
           }
-          try {
-            const obj = JSON.parse(payloadStr);
-            if (obj.error) {
-              onDone(new Error(obj.error));
-              return;
-            }
-            const reasoning = obj.reasoning_content ?? '';
-            const content = obj.content ?? '';
-            if (reasoning || content) {
-              onChunk({ reasoning_content: reasoning, content });
-            }
-          } catch (_) {}
-        }
+          const reasoning = obj.reasoning_content ?? '';
+          const content = obj.content ?? '';
+          onChunk({ reasoning_content: reasoning, content });
+        } catch (_) {}
       }
     }
-    if (buffer.startsWith('data: ')) {
-      const payloadStr = buffer.slice(6).trim();
+    const trimmedBuf = buffer.trimStart();
+    if (trimmedBuf.startsWith('data: ')) {
+      const payloadStr = trimmedBuf.slice(6).trim();
       if (payloadStr !== '[DONE]') {
         try {
           const obj = JSON.parse(payloadStr);
           if (obj.error) onDone(new Error(obj.error));
-          else if (obj.reasoning_content || obj.content) {
-            onChunk({ reasoning_content: obj.reasoning_content ?? '', content: obj.content ?? '' });
-          }
+          else onChunk({ reasoning_content: obj.reasoning_content ?? '', content: obj.content ?? '' });
         } catch (_) {}
       }
     }
     onDone();
   } catch (e) {
-    onDone(e);
+    if (e?.name === 'AbortError') onDone(new Error('响应超时，请重试'));
+    else onDone(e);
   }
 }

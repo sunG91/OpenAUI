@@ -2,7 +2,7 @@
  * Open AUI - Electron 主进程
  * 启动时同时启动后端 WebSocket 服务
  */
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, session, desktopCapturer } = require('electron');
 // 开发时关闭控制台安全警告（打包后不会出现该警告）
 if (!app.isPackaged) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1';
@@ -162,6 +162,21 @@ function createWindow(backendPort = '9527') {
 app.whenReady().then(() => {
   setupAppMenu();
   startBackend();
+  // 让 getDisplayMedia() 在渲染进程可用：用 desktopCapturer 提供屏幕源，截屏必须支持
+  try {
+    session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+      desktopCapturer
+        .getSources({ types: ['screen', 'window'] })
+        .then((sources) => {
+          const screen = sources.find((s) => s.id.startsWith('screen:')) || sources[0];
+          if (screen) callback({ video: screen });
+          else callback({});
+        })
+        .catch(() => callback({}));
+    });
+  } catch (e) {
+    console.warn('[Open AUI] setDisplayMediaRequestHandler 不可用，截屏将依赖 preload 后备:', e?.message);
+  }
   readBackendPort((_err, port) => {
     createWindow(port);
   });

@@ -17,6 +17,7 @@ export function MainLayout() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false);
   const [mcpMode, setMcpMode] = useState(false);
+  const [suiMode, setSuiMode] = useState(false);
   const messagesEndRef = useRef(null);
   const { send, lastMessage, authenticated } = useWebSocketContext();
   const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
@@ -244,6 +245,10 @@ export function MainLayout() {
       setQuickMode((prev) => !prev);
     } else if (skillId === 'mcp') {
       setMcpMode((prev) => !prev);
+    } else if (skillId === 'sui') {
+      setSuiMode((prev) => !prev);
+      handleSidebarSelect('skills');
+      window.dispatchEvent(new CustomEvent('openaui:skills-activate', { detail: { moduleId: 'sui' } }));
     }
   };
 
@@ -338,6 +343,7 @@ export function MainLayout() {
                   onPlusClick={() => setSidebarActive('skills')}
                   quickMode={quickMode}
                   mcpMode={mcpMode}
+                  suiMode={suiMode}
                   placeholder={voiceActive ? '正在监听，请说话...' : '发消息或输入「/」选择技能'}
                   voiceActive={voiceActive}
                   onVoiceToggle={() => {

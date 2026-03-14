@@ -12,6 +12,7 @@ import { SkillModuleCard } from './SkillModuleCard';
 import { QuickConfig } from './QuickConfig';
 import { McpConfig } from './McpConfig';
 import { McpTestArea } from './McpTestArea';
+import { SuiTestArea } from './SuiTestArea';
 
 export function SkillsPanel({ className = '' }) {
   const moduleIds = SKILL_MODULES.map((m) => m.id);
@@ -117,6 +118,17 @@ export function SkillsPanel({ className = '' }) {
               </SkillModuleCard>
               <div className="flex-1 min-h-0">
                 <McpTestArea />
+              </div>
+            </>
+          )}
+
+          {activeModuleId === 'sui' && (
+            <>
+              <SkillModuleCard id="sui" label="SUI" desc="截屏转 base64 发送给视觉模型识别（看见 UI）">
+                <p className="text-xs text-[var(--input-placeholder)]">下方测试区仅展示带「视觉识别/图片分析」标签的模型。</p>
+              </SkillModuleCard>
+              <div className="flex-1 min-h-0">
+                <SuiTestArea />
               </div>
             </>
           )}

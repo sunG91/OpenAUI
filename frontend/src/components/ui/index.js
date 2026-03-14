@@ -1,3 +1,4 @@
+export { StreamingText } from './StreamingText';
 export { VoiceWaveform } from './VoiceWaveform';
 export { VoiceButton } from './VoiceButton';
 export { MessageBubble } from './MessageBubble';
