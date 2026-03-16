@@ -4,10 +4,12 @@
  */
 import { useState, useRef } from 'react';
 import { visionListModels, visionDetect, guiScreenCapture } from '../../../api/tools';
+import { AIAgentTestView } from './AIAgentTools';
 
 const TABS = [
   { id: 'view', label: '查看' },
   { id: 'test', label: '测试' },
+  { id: 'ai', label: 'AI 测试' },
 ];
 
 export function VisionTools() {
@@ -33,11 +35,16 @@ export function VisionTools() {
           </button>
         ))}
       </div>
-      <div className={`flex-1 min-h-0 flex flex-col p-4 ${tab === 'test' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col p-4 ${tab === 'test' || tab === 'ai' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         {tab === 'view' && <VisionToolsView />}
         {tab === 'test' && (
           <div className="flex-1 min-h-0 overflow-hidden">
             <VisionToolsTest />
+          </div>
+        )}
+        {tab === 'ai' && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <AIAgentTestView />
           </div>
         )}
       </div>
@@ -175,7 +182,7 @@ function VisionToolsTest() {
                 <img src={imageDataUrl} alt="输入" className="max-w-full max-h-[300px] object-contain rounded" />
                 {detections.length > 0 && (
                   <div className="mt-1 text-[10px] text-green-600 font-medium">
-                    检测到 {detections.length} 个目标：{detections.map((d) => `${d.className}(${Math.round(d.confidence * 100)}%)`).join(', ')}
+                    检测到 {detections.length} 个目标：{detections.map((d) => `${d.className}(${Math.round((d.confidence > 1 ? d.confidence / 1000 : d.confidence) * 100)}%)`).join(', ')}
                   </div>
                 )}
               </div>

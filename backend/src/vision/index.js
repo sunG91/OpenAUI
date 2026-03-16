@@ -51,7 +51,8 @@ function mountVisionRoutes(app) {
         confThreshold: typeof confThreshold === 'number' ? confThreshold : 0.25,
         iouThreshold: typeof iouThreshold === 'number' ? iouThreshold : 0.45,
       });
-      return ok(res, { detections });
+      const modelUsed = typeof modelPath === 'string' ? modelPath.replace(/^.*[\\/]/, '') : modelPath;
+      return ok(res, { detections, modelUsed });
     } catch (e) {
       return fail(res, e?.message || '检测失败');
     }

@@ -91,7 +91,7 @@ async function preprocess(imageBuffer, inputSize = DEFAULT_INPUT_SIZE) {
 
 /**
  * 后处理：解析 YOLOv8 输出，NMS，返回检测框
- * 支持 [1,84,8400] 或 [1,8400,84] 两种布局
+ * YOLOv8 输出为 [1, 84, 8400]（features × boxes），需按 stride 索引
  */
 function postprocess(outputTensor, origW, origH, inputSize, confThreshold = 0.25, iouThreshold = 0.45) {
   const dims = outputTensor.dims;
@@ -100,16 +100,17 @@ function postprocess(outputTensor, origW, origH, inputSize, confThreshold = 0.25
   const numPredictions = Math.max(dims[1], dims[2]);
   const numClasses = numChannels - 4;
   const detections = [];
+  const isFeaturesFirst = dims[1] < dims[2];
+  const stride = isFeaturesFirst ? numPredictions : numChannels;
   for (let i = 0; i < numPredictions; i++) {
-    const base = i * numChannels;
-    const cx = data[base];
-    const cy = data[base + 1];
-    const w = data[base + 2];
-    const h = data[base + 3];
+    const cx = isFeaturesFirst ? data[i] : data[i * numChannels];
+    const cy = isFeaturesFirst ? data[stride + i] : data[i * numChannels + 1];
+    const w = isFeaturesFirst ? data[2 * stride + i] : data[i * numChannels + 2];
+    const h = isFeaturesFirst ? data[3 * stride + i] : data[i * numChannels + 3];
     let maxScore = 0;
     let maxClass = 0;
     for (let c = 0; c < numClasses; c++) {
-      const score = data[base + 4 + c];
+      const score = isFeaturesFirst ? data[(4 + c) * stride + i] : data[i * numChannels + 4 + c];
       if (score > maxScore) {
         maxScore = score;
         maxClass = c;

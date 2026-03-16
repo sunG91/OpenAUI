@@ -5,4 +5,5 @@ export { ConsoleToolsTest } from './ConsoleToolsTest';
 export { SystemTools } from './SystemTools';
 export { GuiTools } from './GuiTools';
 export { BrowserTools } from './BrowserTools';
+export { VisionTools } from './VisionTools';
 export { TOOL_MODULES } from './toolModules';
