@@ -92,6 +92,15 @@ function listTabs(sessionId) {
   return tabs;
 }
 
+/** 将新页面加入会话，返回新 pageId（用于点击 target="_blank" 后新开的标签页） */
+function addPageToSession(sessionId, page) {
+  const ctx = getSession(sessionId);
+  if (!ctx) return null;
+  const pageId = generateId();
+  ctx.pages.set(pageId, page);
+  return pageId;
+}
+
 // 定期清理空闲会话
 setInterval(() => {
   const now = Date.now();
@@ -112,4 +121,6 @@ module.exports = {
   getOrCreatePage,
   closeSession,
   listTabs,
+  addPageToSession,
+  generateId,
 };

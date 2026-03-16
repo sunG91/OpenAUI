@@ -18,7 +18,7 @@ function fail(res, message, extra = {}) {
 }
 
 function mountBrowserRoutes(app) {
-  const { playwright, BROWSER_TIMEOUT_MS, createSession, getOrCreatePage, closeSession, listTabs } = sessionManager;
+  const { playwright, BROWSER_TIMEOUT_MS, createSession, getOrCreatePage, closeSession, listTabs, addPageToSession } = sessionManager;
   const { extractInteractiveElements } = domParser;
   const { identifyWithVision } = visionIdentify;
 
@@ -116,36 +116,98 @@ function mountBrowserRoutes(app) {
     }
   });
 
-  /** POST /api/tools/browser/click — 点击元素 */
+  /** POST /api/tools/browser/click — 点击元素；若打开新标签页则返回新 pageId */
   app.post('/api/tools/browser/click', async (req, res) => {
     let browser;
     try {
-      const { selector } = req.body || {};
+      const { selector, force } = req.body || {};
       if (!selector) return fail(res, '缺少 selector');
       const r = await resolvePage(req);
       if (!r.ok) return fail(res, r.error);
-      const { page } = r;
+      const { page, sessionId, pageId } = r;
       browser = r.browser;
-      await page.click(selector, { timeout: 10_000 });
+
+      // 搜索结果页需先等待加载：必应 #b_results、谷歌 #search、百度 #content_left
+      if (/b_results|content_left|#search|\.g\b/.test(selector)) {
+        const waitSel = /b_results/.test(selector) ? '#b_results' : /content_left/.test(selector) ? '#content_left' : '#search';
+        await page.waitForSelector(waitSel, { timeout: 15_000 }).catch(() => {});
+      }
+
+      const doClick = async (useForce) => {
+        const locator = page.locator(selector).first();
+        await locator.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+        await locator.click({ timeout: 10_000, force: !!useForce });
+      };
+
+      let newPageId = null;
+      if (sessionId) {
+        const context = page.context();
+        const popupPromise = context.waitForEvent('page', { timeout: 2500 }).catch(() => null);
+        try {
+          await doClick(!!force);
+        } catch (clickErr) {
+          if (/not visible|is not visible/.test(String(clickErr)) && !force) {
+            await doClick(true);
+          } else {
+            throw clickErr;
+          }
+        }
+        const popup = await popupPromise;
+        if (popup && !popup.isClosed()) {
+          newPageId = addPageToSession(sessionId, popup);
+        } else {
+          await page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+        }
+      } else {
+        try {
+          await doClick(!!force);
+        } catch (clickErr) {
+          if (/not visible|is not visible/.test(String(clickErr)) && !force) {
+            await doClick(true);
+          } else {
+            throw clickErr;
+          }
+        }
+      }
+
       if (browser) await browser.close();
-      return ok(res, { selector });
+      return ok(res, {
+        selector,
+        ...(sessionId && { sessionId }),
+        pageId: newPageId ?? pageId,
+      });
     } catch (e) {
       if (browser) await browser.close().catch(() => {});
       return fail(res, e?.message || '点击失败');
     }
   });
 
-  /** POST /api/tools/browser/type — 在元素内输入 */
+  /** POST /api/tools/browser/type — 在元素内输入；可选 pressEnter 提交 */
   app.post('/api/tools/browser/type', async (req, res) => {
     let browser;
     try {
-      const { selector, text } = req.body || {};
+      const { selector, text, force, pressEnter } = req.body || {};
       if (!selector) return fail(res, '缺少 selector');
       const r = await resolvePage(req);
       if (!r.ok) return fail(res, r.error);
       const { page } = r;
       browser = r.browser;
-      await page.fill(selector, String(text || ''), { timeout: 10_000 });
+      const locator = page.locator(selector).first();
+      await locator.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
+      // 先点击聚焦（百度等页面搜索框可能被遮挡或需激活）
+      await locator.click({ timeout: 5_000, force: true }).catch(() => {});
+      try {
+        await locator.fill(String(text || ''), { timeout: 10_000, force: !!force });
+      } catch (fillErr) {
+        if (/not visible|is not visible/.test(String(fillErr)) && !force) {
+          await locator.fill(String(text || ''), { timeout: 10_000, force: true });
+        } else {
+          throw fillErr;
+        }
+      }
+      if (pressEnter) {
+        await locator.press('Enter', { timeout: 3_000 }).catch(() => {});
+      }
       if (browser) await browser.close();
       return ok(res, { selector, length: String(text || '').length });
     } catch (e) {

@@ -5,12 +5,12 @@
 import { useEffect, useState } from 'react';
 import { MarkdownBlock } from './ModelTestPanel/MarkdownBlock';
 
-const TICK_MS = 22;
-const STEP_FAST = 4;
-const STEP_MED = 2;
-const STEP_SLOW = 1;
-const BEHIND_FAST = 30;
-const BEHIND_MED = 12;
+const TICK_MS = 18;
+const STEP_FAST = 8;
+const STEP_MED = 4;
+const STEP_SLOW = 2;
+const BEHIND_FAST = 50;
+const BEHIND_MED = 20;
 
 export function StreamingText({
   text = '',
@@ -19,12 +19,18 @@ export function StreamingText({
   isStreaming = false,
   /** 完全露出后是否仍显示光标（例如还在 loading） */
   showCursorWhenCaughtUp = false,
+  /** 跳过动画，直接展示全文 */
+  instant = false,
 }) {
   const [displayedLength, setDisplayedLength] = useState(0);
 
   useEffect(() => {
     if (!text || text.length === 0) {
       setDisplayedLength(0);
+      return;
+    }
+    if (instant) {
+      setDisplayedLength(text.length);
       return;
     }
     const id = setInterval(() => {
@@ -37,7 +43,7 @@ export function StreamingText({
       });
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [text]);
+  }, [text, instant]);
 
   const caughtUp = displayedLength >= (text?.length ?? 0);
   const showCursor = isStreaming || (showCursorWhenCaughtUp && caughtUp && text?.length > 0);

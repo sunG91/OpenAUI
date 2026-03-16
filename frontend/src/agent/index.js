@@ -4,6 +4,7 @@
  */
 export { decompose } from './decompose';
 export { executePlan } from './planExecutor';
+export { supervise } from './supervisor';
 export { runAgent } from './orchestrator';
 export { createToolExecutor, TOOL_NAMES } from './toolRegistry';
 export { TOOL_SCHEMA, PLAN_SCHEMA, STEP_PARAM_SCHEMA } from './schemas';

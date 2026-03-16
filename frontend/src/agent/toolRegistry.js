@@ -129,7 +129,7 @@ export function createToolExecutor(tools) {
         result = await browserClick(useSession ? { sessionId: browserSessionId, pageId: browserPageId, selector: obj.selector ?? '' } : { url: obj.url ?? '', selector: obj.selector ?? '' });
         break;
       case 'browser_type':
-        result = await browserType(useSession ? { sessionId: browserSessionId, pageId: browserPageId, selector: obj.selector ?? '', text: obj.text ?? '' } : { url: obj.url ?? '', selector: obj.selector ?? '', text: obj.text ?? '' });
+        result = await browserType(useSession ? { sessionId: browserSessionId, pageId: browserPageId, selector: obj.selector ?? '', text: obj.text ?? '', pressEnter: obj.pressEnter } : { url: obj.url ?? '', selector: obj.selector ?? '', text: obj.text ?? '', pressEnter: obj.pressEnter });
         break;
       case 'browser_screenshot':
         result = await browserScreenshot(useSession ? { sessionId: browserSessionId, pageId: browserPageId } : { url: obj.url ?? '' });
