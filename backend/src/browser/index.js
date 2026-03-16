@@ -36,6 +36,8 @@ function mountBrowserRoutes(app) {
       '/api/tools/browser/dom/interactive',
       '/api/tools/browser/scroll',
       '/api/tools/browser/execute',
+      '/api/tools/browser/back',
+      '/api/tools/browser/wait',
       '/api/tools/browser/identify',
     ].forEach((r) => app.post(r, notInstalled));
     return;
@@ -202,6 +204,42 @@ function mountBrowserRoutes(app) {
     } catch (e) {
       if (browser) await browser.close().catch(() => {});
       return fail(res, e?.message || '滚动失败');
+    }
+  });
+
+  /** POST /api/tools/browser/back — 浏览器后退 */
+  app.post('/api/tools/browser/back', async (req, res) => {
+    try {
+      const r = await resolvePage(req);
+      if (!r.ok) return fail(res, r.error);
+      const { page } = r;
+      if (!r.sessionId) return fail(res, 'browser_back 需在会话内使用（先 browser_session_start）');
+      await page.goBack({ timeout: BROWSER_TIMEOUT_MS });
+      const url = page.url();
+      const title = await page.title();
+      return ok(res, { url, title, pageId: r.pageId, sessionId: r.sessionId });
+    } catch (e) {
+      return fail(res, e?.message || '后退失败');
+    }
+  });
+
+  /** POST /api/tools/browser/wait — 等待页面加载（selector 出现或固定时长） */
+  app.post('/api/tools/browser/wait', async (req, res) => {
+    try {
+      const { selector, timeout = 3000 } = req.body || {};
+      const r = await resolvePage(req);
+      if (!r.ok) return fail(res, r.error);
+      const { page } = r;
+      const ms = Math.min(Math.max(Number(timeout) || 3000, 500), 30000);
+      if (selector && typeof selector === 'string' && selector.trim()) {
+        await page.waitForSelector(selector.trim(), { timeout: ms });
+      } else {
+        await new Promise((r) => setTimeout(r, ms));
+      }
+      const url = page.url();
+      return ok(res, { waited: ms, url, selector: selector || null });
+    } catch (e) {
+      return fail(res, e?.message || '等待超时');
     }
   });
 

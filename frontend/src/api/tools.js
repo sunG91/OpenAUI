@@ -245,6 +245,26 @@ export async function browserExecute(payload) {
   return parseJsonResponse(res);
 }
 
+/** 浏览器后退（需在 session 内使用） */
+export async function browserBack(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/back`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 等待页面加载（timeout 毫秒，或 selector 出现） */
+export async function browserWait(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/wait`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(res);
+}
+
 /** 多态识别：截图 + 视觉模型识别元素 */
 export async function browserIdentify(payload) {
   const res = await fetch(`${API_BASE}/api/tools/browser/identify`, {

@@ -53,6 +53,8 @@ export function createToolExecutor(tools) {
     browserDomInteractive,
     browserScroll,
     browserExecute,
+    browserBack,
+    browserWait,
     visionDetect,
   } = tools;
 
@@ -142,6 +144,12 @@ export function createToolExecutor(tools) {
       case 'browser_execute':
         result = await browserExecute(useSession ? { sessionId: browserSessionId, pageId: browserPageId, script: obj.script ?? 'null' } : { url: obj.url ?? '', script: obj.script ?? 'null' });
         break;
+      case 'browser_back':
+        result = await browserBack(useSession ? { sessionId: browserSessionId, pageId: browserPageId } : {});
+        break;
+      case 'browser_wait':
+        result = await browserWait(useSession ? { sessionId: browserSessionId, pageId: browserPageId, selector: obj.selector, timeout: obj.timeout } : { selector: obj.selector, timeout: obj.timeout });
+        break;
       case 'vision_screen_detect': {
         const cap = await guiScreenCapture();
         if (!cap?.image) {
@@ -204,6 +212,6 @@ export const TOOL_NAMES = [
   'gui_mouse_move', 'gui_mouse_click', 'gui_keyboard_type', 'gui_screen_capture',
   'console_shell', 'fs_list', 'fs_read_text', 'fs_write_text', 'process_list', 'process_kill',
   'browser_navigate', 'browser_click', 'browser_type', 'browser_screenshot',
-  'browser_dom_interactive', 'browser_scroll', 'browser_execute',
+  'browser_dom_interactive', 'browser_scroll', 'browser_execute', 'browser_back', 'browser_wait',
   'vision_screen_detect', 'vision_detect', 'gui_click_detection',
 ];

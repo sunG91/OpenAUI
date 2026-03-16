@@ -61,6 +61,9 @@ async function completeStepParams(step, context, testModel, vendorId, modelId) {
   const browserExecHint = tool === 'browser_execute' && /提取|获取|读取|文字|内容|数据/.test(action)
     ? '\n重要：script 必须 return 字符串，例如 "return (document.querySelector(\'#content_left\')||document.body).innerText"'
     : '';
+  const browserWaitHint = tool === 'browser_wait'
+    ? '\n重要：timeout 为毫秒数，建议 2000-3000；若需等待特定元素可填 selector。'
+    : '';
 
   const msg = `步骤描述：${action}
 指定工具：${tool}
@@ -70,6 +73,7 @@ ${projectRoot ? `项目根目录：${projectRoot}` : ''}
 ${prevSummary}
 ${fsWriteHint}
 ${browserExecHint}
+${browserWaitHint}
 
 ${TOOL_SCHEMA}
 
@@ -117,7 +121,7 @@ export async function executePlan(plan, options) {
 
   const VISUAL_TOOLS = new Set([
     'browser_navigate', 'browser_click', 'browser_type', 'browser_screenshot',
-    'browser_dom_interactive', 'browser_scroll', 'browser_execute',
+    'browser_dom_interactive', 'browser_scroll', 'browser_execute', 'browser_back', 'browser_wait',
     'gui_mouse_move', 'gui_mouse_click', 'gui_keyboard_type', 'gui_screen_capture',
   ]);
 
@@ -129,7 +133,7 @@ export async function executePlan(plan, options) {
 
   const BROWSER_TOOLS = new Set([
     'browser_navigate', 'browser_click', 'browser_type', 'browser_screenshot',
-    'browser_dom_interactive', 'browser_scroll', 'browser_execute',
+    'browser_dom_interactive', 'browser_scroll', 'browser_execute', 'browser_back', 'browser_wait',
   ]);
 
   try {

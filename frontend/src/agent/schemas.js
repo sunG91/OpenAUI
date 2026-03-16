@@ -30,6 +30,8 @@ export const TOOL_SCHEMA = `
 - browser_dom_interactive: 解析可交互元素，返回链接/按钮等。参数: url
 - browser_scroll: 滚动。参数: url, x, y
 - browser_execute: 执行 JavaScript 提取页面文字。script 必须 return 字符串，如 "return (document.querySelector('#content_left')||document.body).innerText"
+- browser_back: 浏览器后退（返回上一页）。无参数，需在会话内使用。
+- browser_wait: 等待页面加载。参数: timeout(毫秒，默认3000)、selector(可选，等待该元素出现)
 
 【视觉检测】仅检测物体（laptop、person 等），不能识别文字
 - vision_screen_detect: 截屏+YOLO 物体检测。参数: modelId(可选)
@@ -40,7 +42,7 @@ export const TOOL_SCHEMA = `
 - llm_verify_content: 验证上一步提取的内容是否满足用户目标。无参数，content 和 userGoal 由系统自动传入。
 
 输出格式（仅 JSON，无 markdown）：
-{"tool":"工具名","x":0,"y":0,"button":"left","text":"","region":"","command":"","cwd":"","path":"","content":"","pid":0,"url":"","selector":"","script":"","modelId":"","image":"","index":0}
+{"tool":"工具名","x":0,"y":0,"button":"left","text":"","region":"","command":"","cwd":"","path":"","content":"","pid":0,"url":"","selector":"","script":"","modelId":"","image":"","index":0,"timeout":3000}
 `;
 
 export const PLAN_SCHEMA = `
@@ -49,7 +51,7 @@ export const PLAN_SCHEMA = `
 tool 必须从以下列表精确选择（不要自创名称）：
 gui_mouse_move, gui_mouse_click, gui_keyboard_type, gui_screen_capture, console_shell,
 fs_list, fs_read_text, fs_write_text, process_list, process_kill,
-browser_navigate, browser_click, browser_type, browser_screenshot, browser_dom_interactive, browser_scroll, browser_execute,
+browser_navigate, browser_click, browser_type, browser_screenshot, browser_dom_interactive, browser_scroll, browser_execute, browser_back, browser_wait,
 vision_screen_detect, vision_detect, gui_click_detection, llm_verify_content
 
 输出格式（仅输出 JSON，不要 markdown、不要解释）：
@@ -67,6 +69,8 @@ vision_screen_detect, vision_detect, gui_click_detection, llm_verify_content
 
 重要：
 - 搜索后需点击结果链接（browser_click）打开详情页，再提取内容；不能只停留在搜索结果页。
+- 返回搜索页必须用 browser_back 后退，不能用 browser_navigate 打开百度首页（会丢失搜索结果）。
+- 点击结果后、提取前插入 browser_wait 等待页面加载（timeout 2000-3000）；若页面空白可多次 browser_wait。
 - 从网页提取文字用 browser_execute，不要用 console_shell。
 - 若用户只需结果：最后一步用 browser_execute 提取并返回，不要用 fs_write_text。
 - 若需保存为文件：用 fs_write_text，path 以 .md 结尾。
@@ -76,13 +80,15 @@ vision_screen_detect, vision_detect, gui_click_detection, llm_verify_content
 2) browser_type 输入关键词
 3) browser_click 点击搜索按钮
 4) browser_click 点击第一个结果链接
-5) browser_execute 提取页面内容
-6) llm_verify_content 验证内容是否满足用户需求
-7) runIf:prev_verify_failed — browser_navigate 返回搜索页
-8) runIf:prev_verify_failed — browser_click 点击第二个结果链接
-9) runIf:prev_verify_failed — browser_execute 重新提取
-10) runIf:prev_verify_failed — llm_verify_content 再次验证
-步骤 7-10 仅在步骤 6 验证不通过时执行；若步骤 6 通过则跳过 7-10，直接采纳第一次提取结果。
+5) browser_wait 等待页面加载（timeout: 2500）
+6) browser_execute 提取页面内容
+7) llm_verify_content 验证内容是否满足用户需求
+8) runIf:prev_verify_failed — browser_back 后退到搜索页
+9) runIf:prev_verify_failed — browser_click 点击第二个结果链接（selector 如 #content_left .result:nth-of-type(2) a）
+10) runIf:prev_verify_failed — browser_wait 等待页面加载
+11) runIf:prev_verify_failed — browser_execute 重新提取
+12) runIf:prev_verify_failed — llm_verify_content 再次验证
+步骤 8-12 仅在步骤 7 验证不通过时执行；若步骤 7 通过则跳过 8-12。
 `;
 
 export const STEP_PARAM_SCHEMA = `

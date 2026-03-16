@@ -48,7 +48,7 @@ export async function decompose(options) {
 
   const isSearchTask = /搜索|查找|查询|百度|google|bing/i.test(userGoal);
   const searchHint = isSearchTask
-    ? '\n\n涉及搜索任务时，必须包含完整流程：打开搜索页→输入关键词→点击搜索→点击第一个结果→提取内容→llm_verify_content 验证→若未通过则 runIf:prev_verify_failed 返回搜索页、点击第二个结果、重新提取、再次验证。'
+    ? '\n\n涉及搜索任务时，必须包含完整流程：打开搜索页→输入→点击搜索→点击第一个结果→browser_wait 等待加载→提取→llm_verify_content 验证→若未通过则 runIf:prev_verify_failed 用 browser_back 后退、点击第二个结果、browser_wait、重新提取、再次验证。返回搜索页必须用 browser_back，不能用 browser_navigate 打开首页。'
     : '';
 
   const decomposeMsg = `用户目标：${userGoal}${outputHint}${searchHint}
