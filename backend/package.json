@@ -17,6 +17,7 @@
     "express": "^4.21.0",
     "https-proxy-agent": "^8.0.0",
     "iconv-lite": "^0.6.3",
+    "jimp": "^0.22.12",
     "multer": "^2.0.2",
     "onnxruntime-node": "^1.24.3",
     "openai": "^4.73.0",

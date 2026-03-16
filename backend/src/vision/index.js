@@ -13,8 +13,13 @@ function fail(res, message, extra = {}) {
 }
 
 function mountVisionRoutes(app) {
-  const notInstalled = (req, res) =>
-    fail(res, '视觉检测模块未安装，请执行: npm install onnxruntime-node sharp');
+  const notInstalled = (req, res) => {
+    const err = detector.getLoadError?.() || '';
+    const msg = err
+      ? `视觉检测模块加载失败：${err}请执行 npm install onnxruntime-node jimp 并重启后端。（sharp 在部分 Windows 环境可能失败，jimp 为纯 JS 备选）`
+      : '视觉检测模块未安装，请执行: npm install onnxruntime-node jimp';
+    return fail(res, msg);
+  };
 
   if (!detector.hasDependencies()) {
     app.get('/api/tools/vision/models', notInstalled);

@@ -11,12 +11,23 @@ const DEFAULT_INPUT_SIZE = 640;
 
 let ort = null;
 let sharp = null;
+let jimp = null;
+let loadError = '';
 try {
   ort = require('onnxruntime-node');
-} catch (_) {}
+} catch (e) {
+  loadError += `onnxruntime-node: ${e?.message || e}; `;
+}
 try {
   sharp = require('sharp');
-} catch (_) {}
+} catch (e) {
+  loadError += `sharp: ${e?.message || e}; `;
+}
+try {
+  jimp = require('jimp');
+} catch (e) {
+  loadError += `jimp: ${e?.message || e}; `;
+}
 
 async function ensureModelsDir() {
   await fsp.mkdir(MODELS_DIR, { recursive: true });
@@ -41,25 +52,39 @@ async function listModels() {
 
 /**
  * 预处理：将图片转为 YOLO 输入张量 [1, 3, H, W]，归一化 0-1
+ * 优先 sharp，失败时用 jimp（纯 JS，兼容 Windows）
  */
 async function preprocess(imageBuffer, inputSize = DEFAULT_INPUT_SIZE) {
-  if (!sharp) throw new Error('请安装 sharp: npm install sharp');
-  const { data, info } = await sharp(imageBuffer)
-    .removeAlpha()
-    .resize(inputSize, inputSize, { fit: 'fill' })
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-  const { width, height, channels } = info;
-  const numPixels = width * height * channels;
+  let data; let width; let height; let channels = 3;
+  if (sharp) {
+    const out = await sharp(imageBuffer)
+      .removeAlpha()
+      .resize(inputSize, inputSize, { fit: 'fill' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    data = out.data;
+    width = out.info.width;
+    height = out.info.height;
+  } else if (jimp) {
+    const img = await jimp.read(imageBuffer);
+    img.resize(inputSize, inputSize);
+    width = img.bitmap.width;
+    height = img.bitmap.height;
+    data = img.bitmap.data;
+    channels = 4;
+  } else {
+    throw new Error('请安装 sharp 或 jimp: npm install sharp 或 npm install jimp');
+  }
+  const numPixels = width * height;
   const float32 = new Float32Array(3 * inputSize * inputSize);
-  for (let i = 0; i < numPixels; i += channels) {
-    const r = data[i] / 255;
-    const g = data[i + 1] / 255;
-    const b = data[i + 2] / 255;
-    const idx = Math.floor(i / channels);
-    float32[idx] = r;
-    float32[inputSize * inputSize + idx] = g;
-    float32[2 * inputSize * inputSize + idx] = b;
+  for (let i = 0; i < numPixels; i++) {
+    const base = i * channels;
+    const r = data[base] / 255;
+    const g = data[base + 1] / 255;
+    const b = data[base + 2] / 255;
+    float32[i] = r;
+    float32[inputSize * inputSize + i] = g;
+    float32[2 * inputSize * inputSize + i] = b;
   }
   return new ort.Tensor('float32', float32, [1, 3, inputSize, inputSize]);
 }
@@ -160,9 +185,16 @@ async function runDetection(imageBuffer, modelPath, classNames = [], options = {
     cachedModelPath = absPath;
   }
 
-  const origMeta = await sharp(imageBuffer).metadata();
-  const origW = origMeta.width || 640;
-  const origH = origMeta.height || 480;
+  let origW = 640, origH = 480;
+  if (sharp) {
+    const meta = await sharp(imageBuffer).metadata();
+    origW = meta.width || origW;
+    origH = meta.height || origH;
+  } else if (jimp) {
+    const img = await jimp.read(imageBuffer);
+    origW = img.bitmap.width;
+    origH = img.bitmap.height;
+  }
 
   const inputTensor = await preprocess(imageBuffer, inputSize);
   const feeds = {};
@@ -187,5 +219,6 @@ module.exports = {
   listModels,
   runDetection,
   decodeImageFromDataUrl,
-  hasDependencies: () => !!(ort && sharp),
+  hasDependencies: () => !!(ort && (sharp || jimp)),
+  getLoadError: () => loadError || null,
 };
