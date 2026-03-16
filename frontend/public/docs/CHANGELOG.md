@@ -1,5 +1,18 @@
 # 更新记录（Changelog）
 
+## 0.1.5（2026-03-16）
+
+- 新增：<strong>llm_extract_from_content</strong> 工具，由 AI 从原始页面文本中提取与用户目标相关的信息，适配任意网页结构；支持长文本分段处理。
+- 优化：<code>browser_execute</code> 提取逻辑，详情页使用通用选择器，不再依赖单一站点 selector。
+- 优化：<code>browser_click</code> 支持多标签页，点击新窗口链接时自动切换到新标签页。
+- 优化：<code>browser_type</code> 先点击聚焦再输入，解决搜索框「element is not visible」问题；新增 <code>pressEnter</code> 参数。
+- 优化：<code>browser_click</code> 增加 force 回退；搜索提交改用 <code>pressEnter</code>，不再单独点击搜索按钮。
+- 新增：<strong>多搜索引擎支持</strong>，搜索任务优先使用必应或谷歌，百度可选；各引擎 selector 已内置。
+- 优化：搜索结果页点击前自动等待加载；schema 与参数补全根据当前搜索引擎动态推荐 selector。
+- 优化：Agent 测试区「深度思考」「Plan」「执行结果」可收起；最终结果出现时自动收起并滚动到结果区。
+- 优化：最终结果流式展示，状态及时变更（执行中→已完成，展示中→完成）。
+- 优化：StreamingText 提速，新增 <code>instant</code> 参数。
+
 ## 0.1.4（2026-03-16）
 
 - 新增：技能面板「自主拆解任务」模块，支持自然语言目标拆分为可执行步骤 Plan；流程为「深度思考 → 任务拆分」，支持「开启深度思考」开关（可关闭时直接拆分，跳过思考层）。
@@ -8,6 +21,7 @@
 - 新增：**输出方式**：支持「直接展示（Markdown）」与「保存为 .md 文件」两种模式；仅需结果时直接展示，无需生成文件。
 - 新增：**内容验证与重试**：<code>llm_verify_content</code> 工具，由 LLM 判断提取内容是否满足用户需求；验证不通过时执行 <code>runIf: prev_verify_failed</code> 重试块（返回搜索页、点击下一个结果、重新提取、再次验证）。
 - 新增：<code>browser_back</code> 浏览器后退；<code>browser_wait</code> 等待页面加载（避免页面空白）。
+- 新增：<strong>Agent 流式输出</strong>：拆解、执行、最终结果均支持流式/增量展示，减少等待感。
 - 新增：技能面板「工具」模块，包含系统工具（Shell/FS/进程）、GUI 模拟（nut.js 鼠标/键盘/截屏）、浏览器自动化（Playwright 打开/点击/输入/截屏）。
 - 新增：GUI 工具与浏览器工具均支持「查看」「测试」「AI 测试」三个 tab；AI 测试可根据自然语言指令自动选择并调用对应工具。
 - 新增：**浏览器网页操作模块（2.3）** 完整实现：DOM 解析（提取按钮、输入框、链接等可交互元素）、脚本操作（滚动、执行脚本）、多态识别（截图 + 视觉模型识别 UI 元素）、多标签页（会话管理 session/start|end|tabs）。

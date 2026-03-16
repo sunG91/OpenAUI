@@ -14,8 +14,12 @@ import { getToolsPlatform, getToolsProjectRoot } from '../api/tools';
  * @param {string} options.modelId - 模型 ID
  * @param {boolean} options.enableThinking - 是否启用深度思考
  * @param {function} options.testModel - 模型调用函数
+ * @param {function} options.testModelStream - 流式调用函数（可选）
+ * @param {boolean} options.stream - 是否启用流式输出
  * @param {function} options.onPhase - (phase: 'thinking'|'decomposing'|'executing') => void
  * @param {function} options.onPlan - (plan) => void
+ * @param {function} options.onThinkingChunk - 思考阶段流式回调
+ * @param {function} options.onDecomposeChunk - 拆解阶段流式回调
  * @param {function} options.onStepStart - (index, step) => void
  * @param {function} options.onStepDone - (index, result) => void
  * @param {number} options.stepDelayMs - 每步间隔毫秒
@@ -30,10 +34,15 @@ export async function runAgent(options) {
     modelId,
     enableThinking = true,
     testModel,
+    testModelStream,
+    stream = false,
     onPhase = () => {},
     onPlan = () => {},
+    onThinkingChunk = () => {},
+    onDecomposeChunk = () => {},
     onStepStart = () => {},
     onStepDone = () => {},
+    onSupervisorPlan = () => {},
     stepDelayMs = 0,
     captureAfterStep = false,
     outputMode = 'display',
@@ -52,13 +61,17 @@ export async function runAgent(options) {
     projectRoot = pr?.projectRoot ?? '';
   } catch (_) {}
 
-  onPhase('decomposing');
   const plan = await decompose({
     userGoal,
     vendorId,
     modelId,
     enableThinking,
     testModel,
+    testModelStream,
+    stream,
+    onPhase,
+    onThinkingChunk,
+    onDecomposeChunk,
     outputMode,
   });
   onPlan(plan);
@@ -72,6 +85,7 @@ export async function runAgent(options) {
     platformHint,
     onStepStart,
     onStepDone,
+    onSupervisorPlan,
     stepDelayMs,
     captureAfterStep,
   });
