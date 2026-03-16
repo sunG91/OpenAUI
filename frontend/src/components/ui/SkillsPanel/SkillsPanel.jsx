@@ -13,6 +13,7 @@ import { QuickConfig } from './QuickConfig';
 import { McpConfig } from './McpConfig';
 import { McpTestArea } from './McpTestArea';
 import { SuiTestArea } from './SuiTestArea';
+import { TaskDecomposeTestArea } from './TaskDecomposeTestArea';
 
 export function SkillsPanel({ className = '' }) {
   const moduleIds = SKILL_MODULES.map((m) => m.id);
@@ -129,6 +130,17 @@ export function SkillsPanel({ className = '' }) {
               </SkillModuleCard>
               <div className="flex-1 min-h-0">
                 <SuiTestArea />
+              </div>
+            </>
+          )}
+
+          {activeModuleId === 'task-decompose' && (
+            <>
+              <SkillModuleCard id="task-decompose" label="自主拆解任务" desc="将自然语言目标拆分为可执行的步骤计划（Plan）">
+                <p className="text-xs text-[var(--input-placeholder)]">输入目标后，AI 会生成带步骤和可选工具提示的 Plan。</p>
+              </SkillModuleCard>
+              <div className="flex-1 min-h-0">
+                <TaskDecomposeTestArea fixedModel={fixedModel} />
               </div>
             </>
           )}

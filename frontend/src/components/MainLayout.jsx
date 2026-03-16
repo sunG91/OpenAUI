@@ -249,6 +249,9 @@ export function MainLayout() {
       setSuiMode((prev) => !prev);
       handleSidebarSelect('skills');
       window.dispatchEvent(new CustomEvent('openaui:skills-activate', { detail: { moduleId: 'sui' } }));
+    } else if (skillId === 'task-decompose') {
+      handleSidebarSelect('skills');
+      window.dispatchEvent(new CustomEvent('openaui:skills-activate', { detail: { moduleId: 'task-decompose' } }));
     }
   };
 

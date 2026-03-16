@@ -18,4 +18,9 @@ export const SKILL_MODULES = [
     label: 'SUI',
     desc: '截屏转 base64 发送给视觉模型识别（看见 UI）',
   },
+  {
+    id: 'task-decompose',
+    label: '自主拆解任务',
+    desc: '将自然语言目标拆分为可执行的步骤计划（Plan）',
+  },
 ];
