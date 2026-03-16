@@ -134,44 +134,123 @@ export async function guiScreenCapture(region) {
   return parseJsonResponse(res);
 }
 
-// ------- 浏览器自动化（playwright）-------
+// ------- 浏览器网页操作（2.3：会话/DOM/脚本/多态识别）-------
 
-/** 打开页面 */
-export async function browserNavigate(url) {
+/** 创建会话（多标签页） */
+export async function browserSessionStart() {
+  const res = await fetch(`${API_BASE}/api/tools/browser/session/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 关闭会话 */
+export async function browserSessionEnd(sessionId) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/session/end`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 列出标签页 */
+export async function browserSessionTabs(sessionId) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/session/tabs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 打开页面（支持 sessionId+pageId 或 仅 url） */
+export async function browserNavigate(payload) {
+  const body = typeof payload === 'string' ? { url: payload } : payload;
   const res = await fetch(`${API_BASE}/api/tools/browser/navigate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
   });
   return parseJsonResponse(res);
 }
 
-/** 点击元素 */
-export async function browserClick(url, selector) {
+/** 点击元素（payload 可为 { url, selector } 或 { sessionId, pageId, selector }；兼容 browserClick(url, selector)） */
+export async function browserClick(payload, selector) {
+  const body = typeof payload === 'object' && payload !== null && !selector
+    ? payload
+    : { url: payload, selector };
   const res = await fetch(`${API_BASE}/api/tools/browser/click`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, selector }),
+    body: JSON.stringify(body),
   });
   return parseJsonResponse(res);
 }
 
-/** 在元素内输入 */
-export async function browserType(url, selector, text) {
+/** 在元素内输入（payload 可为 { url, selector, text }；兼容 browserType(url, selector, text)） */
+export async function browserType(payload, selector, text) {
+  const body = typeof payload === 'object' && payload !== null && selector === undefined
+    ? payload
+    : { url: payload, selector, text };
   const res = await fetch(`${API_BASE}/api/tools/browser/type`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, selector, text }),
+    body: JSON.stringify(body),
   });
   return parseJsonResponse(res);
 }
 
 /** 页面截屏 */
-export async function browserScreenshot(url) {
+export async function browserScreenshot(payload) {
+  const body = typeof payload === 'string' ? { url: payload } : payload;
   const res = await fetch(`${API_BASE}/api/tools/browser/screenshot`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse(res);
+}
+
+/** DOM 解析：获取可交互元素 */
+export async function browserDomInteractive(payload) {
+  const body = typeof payload === 'string' ? { url: payload } : payload;
+  const res = await fetch(`${API_BASE}/api/tools/browser/dom/interactive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 滚动页面 */
+export async function browserScroll(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/scroll`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 执行脚本 */
+export async function browserExecute(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 多态识别：截图 + 视觉模型识别元素 */
+export async function browserIdentify(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/browser/identify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
   return parseJsonResponse(res);
 }

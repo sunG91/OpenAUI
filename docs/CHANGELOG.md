@@ -8,7 +8,9 @@
 
 - 新增：技能面板「工具」模块，包含系统工具（Shell/FS/进程）、GUI 模拟（nut.js 鼠标/键盘/截屏）、浏览器自动化（Playwright 打开/点击/输入/截屏）。
 - 新增：GUI 工具与浏览器工具均支持「查看」「测试」「AI 测试」三个 tab；AI 测试可根据自然语言指令自动选择并调用对应工具。
-- 修复：GUI 截屏接口适配 @nut-tree/nut-js v4 的 `saveImage` API（参数改为 `{ image, path }` 对象），解决 `path must be string. Received undefined` 报错。
+- 新增：**浏览器网页操作模块（2.3）** 完整实现：DOM 解析、脚本操作（滚动/执行脚本）、多态识别（截图+视觉模型）、多标签页（会话管理）。
+- 新增：浏览器模块化封装（backend/src/browser/：sessionManager、domParser、visionIdentify、index）。
+- 修复：GUI 截屏改用 screenshot-desktop 实现，直接返回 PNG buffer，解决 nut.js saveImage 报错问题。
 
 ## 0.1.3（2026-03-14）
 

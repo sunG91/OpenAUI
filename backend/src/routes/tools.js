@@ -228,8 +228,9 @@ function mountToolsRoutes(app) {
   // ---------- GUI 模拟（nut.js）----------
   mountGuiRoutes(app, ok, fail);
 
-  // ---------- 浏览器自动化（playwright）----------
-  mountBrowserRoutes(app, ok, fail);
+  // ---------- 浏览器网页操作模块（2.3：会话/DOM/脚本/多态识别）----------
+  const { mountBrowserRoutes } = require('../browser');
+  mountBrowserRoutes(app);
 }
 
 function mountGuiRoutes(app, ok, fail) {
@@ -239,11 +240,11 @@ function mountGuiRoutes(app, ok, fail) {
     nut = require('@nut-tree/nut-js');
   } catch (e) {
     ['/api/tools/gui/mouse/move', '/api/tools/gui/mouse/click', '/api/tools/gui/keyboard/type'].forEach((r) => app.post(r, guiNotInstalled));
-    app.get('/api/tools/gui/screen/capture', guiNotInstalled);
+    mountGuiScreenCapture(app, ok, fail);
     return;
   }
 
-  const { mouse, keyboard, screen, saveImage, straightTo, Point, Button } = nut;
+  const { mouse, keyboard, straightTo, Point, Button } = nut;
 
   /** POST /api/tools/gui/mouse/move — 鼠标移动到 (x, y) */
   app.post('/api/tools/gui/mouse/move', async (req, res) => {
@@ -292,127 +293,23 @@ function mountGuiRoutes(app, ok, fail) {
     }
   });
 
-  /** GET /api/tools/gui/screen/capture — 截屏，返回 base64 PNG */
-  app.get('/api/tools/gui/screen/capture', async (req, res) => {
-    const dataDir = path.join(REPO_ROOT, 'backend', 'data');
-    await fsp.mkdir(dataDir, { recursive: true });
-    const tmpFile = path.join(dataDir, `_screenshot_${Date.now()}.png`);
-    try {
-      const region = req.query?.region; // 可选 "x,y,w,h"
-      let regionObj;
-      if (region) {
-        const [x, y, w, h] = region.split(',').map(Number);
-        if ([x, y, w, h].every(Number.isFinite) && w > 0 && h > 0) {
-          regionObj = new nut.Region(x, y, w, h);
-        }
-      }
-      const screenshot = regionObj ? await screen.capture(regionObj) : await screen.capture();
-      await saveImage({ image: screenshot, path: tmpFile });
-      const buf = await fsp.readFile(tmpFile);
-      const base64 = buf.toString('base64');
-      await fsp.unlink(tmpFile).catch(() => {});
-      return ok(res, { image: `data:image/png;base64,${base64}` });
-    } catch (e) {
-      await fsp.unlink(tmpFile).catch(() => {});
-      return fail(res, e?.message || '截屏失败');
-    }
-  });
+  mountGuiScreenCapture(app, ok, fail);
 }
 
-function mountBrowserRoutes(app, ok, fail) {
-  const browserNotInstalled = (req, res) => fail(res, '浏览器模块未安装，请执行: npm install playwright');
-  let playwright;
-  try {
-    playwright = require('playwright');
-  } catch (e) {
-    ['/api/tools/browser/navigate', '/api/tools/browser/click', '/api/tools/browser/type', '/api/tools/browser/screenshot'].forEach((r) => app.post(r, browserNotInstalled));
-    return;
-  }
-
-  const BROWSER_TIMEOUT = 60_000;
-
-  /** 优先使用系统 Chrome/Edge，无需下载 Chromium */
-  async function launchBrowser() {
-    for (const channel of ['chrome', 'msedge']) {
-      try {
-        return await playwright.chromium.launch({ headless: true, channel });
-      } catch (_) {}
-    }
-    return await playwright.chromium.launch({ headless: true });
-  }
-
-  /** POST /api/tools/browser/navigate — 打开页面 */
-  app.post('/api/tools/browser/navigate', async (req, res) => {
-    let browser;
+/** GUI 截屏：使用 screenshot-desktop（比 nut.js saveImage 更稳定） */
+function mountGuiScreenCapture(app, ok, fail) {
+  app.get('/api/tools/gui/screen/capture', async (req, res) => {
+    let screenshotDesktop;
     try {
-      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
-      if (!url) return fail(res, '缺少 url');
-      browser = await launchBrowser();
-      const page = await browser.newPage();
-      await page.goto(url, { timeout: BROWSER_TIMEOUT });
-      const title = await page.title();
-      await browser.close();
-      return ok(res, { url, title });
-    } catch (e) {
-      if (browser) await browser.close().catch(() => {});
-      return fail(res, e?.message || '打开页面失败');
+      screenshotDesktop = require('screenshot-desktop');
+    } catch (_) {
+      return fail(res, '截屏模块未安装，请执行: npm install screenshot-desktop');
     }
-  });
-
-  /** POST /api/tools/browser/click — 点击元素 */
-  app.post('/api/tools/browser/click', async (req, res) => {
-    let browser;
     try {
-      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
-      const selector = typeof req.body?.selector === 'string' ? req.body.selector.trim() : '';
-      if (!url || !selector) return fail(res, '缺少 url 或 selector');
-      browser = await launchBrowser();
-      const page = await browser.newPage();
-      await page.goto(url, { timeout: BROWSER_TIMEOUT });
-      await page.click(selector, { timeout: 10_000 });
-      await browser.close();
-      return ok(res, { url, selector });
-    } catch (e) {
-      if (browser) await browser.close().catch(() => {});
-      return fail(res, e?.message || '点击失败');
-    }
-  });
-
-  /** POST /api/tools/browser/type — 在元素内输入 */
-  app.post('/api/tools/browser/type', async (req, res) => {
-    let browser;
-    try {
-      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
-      const selector = typeof req.body?.selector === 'string' ? req.body.selector.trim() : '';
-      const text = typeof req.body?.text === 'string' ? req.body.text : '';
-      if (!url || !selector) return fail(res, '缺少 url 或 selector');
-      browser = await launchBrowser();
-      const page = await browser.newPage();
-      await page.goto(url, { timeout: BROWSER_TIMEOUT });
-      await page.fill(selector, text, { timeout: 10_000 });
-      await browser.close();
-      return ok(res, { url, selector, length: text.length });
-    } catch (e) {
-      if (browser) await browser.close().catch(() => {});
-      return fail(res, e?.message || '输入失败');
-    }
-  });
-
-  /** POST /api/tools/browser/screenshot — 页面截屏，返回 base64 */
-  app.post('/api/tools/browser/screenshot', async (req, res) => {
-    let browser;
-    try {
-      const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
-      if (!url) return fail(res, '缺少 url');
-      browser = await launchBrowser();
-      const page = await browser.newPage();
-      await page.goto(url, { timeout: BROWSER_TIMEOUT });
-      const buf = await page.screenshot({ type: 'png' });
-      await browser.close();
+      const buf = await screenshotDesktop({ format: 'png' });
       const base64 = buf.toString('base64');
       return ok(res, { image: `data:image/png;base64,${base64}` });
     } catch (e) {
-      if (browser) await browser.close().catch(() => {});
       return fail(res, e?.message || '截屏失败');
     }
   });

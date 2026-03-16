@@ -19,6 +19,7 @@
     "multer": "^2.0.2",
     "openai": "^4.73.0",
     "playwright": "^1.49.0",
+    "screenshot-desktop": "^1.15.3",
     "ws": "^8.18.0",
     "yaml": "^2.4.0"
   },

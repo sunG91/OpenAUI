@@ -73,8 +73,8 @@ function GuiToolsView() {
     <div className="text-sm space-y-3 text-[var(--skill-btn-text)]">
       <h3 className="text-base font-semibold text-[var(--skill-btn-text)]">GUI 模拟工具说明</h3>
       <p className="text-[var(--input-placeholder)]">
-        基于 <strong>nut.js</strong>（@nut-tree/nut-js）实现鼠标移动、点击、键盘输入、屏幕截取。
-        需在 backend 目录执行 <code className="px-1 bg-[#f0f0f0] rounded">npm install @nut-tree/nut-js</code> 安装依赖。
+        基于 <strong>nut.js</strong>（@nut-tree/nut-js）实现鼠标移动、点击、键盘输入；截屏使用 <strong>screenshot-desktop</strong>。
+        需在 backend 目录执行 <code className="px-1 bg-[#f0f0f0] rounded">npm install @nut-tree/nut-js screenshot-desktop</code> 安装依赖。
       </p>
       <div className="rounded-lg border border-[var(--input-bar-border)] bg-[#f8f9fa] p-3">
         <div className="text-xs font-medium text-[var(--input-placeholder)] mb-1.5">可用接口</div>

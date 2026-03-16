@@ -11,18 +11,23 @@ const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
  * @returns {Promise<{ content: string, reasoning_content?: string }> | AsyncGenerator}
  */
 async function chat(options) {
-  const { apiKey, modelId, message, stream = false } = options;
+  const { apiKey, modelId, message, messages, stream = false } = options;
   const client = new OpenAI({ baseURL: DEEPSEEK_BASE_URL, apiKey: apiKey.trim() });
-  const userContent = (message && String(message).trim()) || 'Hello';
-  const messages = [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: userContent }
-  ];
+  let finalMessages;
+  if (Array.isArray(messages) && messages.length > 0) {
+    finalMessages = messages;
+  } else {
+    const userContent = (message && String(message).trim()) || 'Hello';
+    finalMessages = [
+      { role: 'system', content: 'You are a helpful assistant.' },
+      { role: 'user', content: userContent }
+    ];
+  }
 
   if (stream) {
     const streamResult = await client.chat.completions.create({
       model: modelId,
-      messages,
+      messages: finalMessages,
       stream: true
     });
     return streamResult; // 返回 async iterable，由 route 层消费并写 SSE
@@ -30,7 +35,7 @@ async function chat(options) {
 
   const completion = await client.chat.completions.create({
     model: modelId,
-    messages,
+    messages: finalMessages,
     stream: false
   });
   const msg = completion.choices?.[0]?.message ?? {};
