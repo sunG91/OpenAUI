@@ -12,14 +12,26 @@ const BROWSER_TIMEOUT_MS = 60_000;
 
 const sessions = new Map(); // sessionId -> { browser, pages: Map<pageId, page>, lastActive }
 
+function isHeaded() {
+  const env = process.env.BROWSER_HEADED;
+  if (env === '1' || env === 'true' || env === 'yes') return true;
+  try {
+    const { loadConfig } = require('../config/loadConfig');
+    const cfg = loadConfig();
+    return cfg?.browser?.headed === true;
+  } catch (_) {}
+  return false;
+}
+
 async function launchBrowser() {
   if (!playwright) return null;
+  const headless = !isHeaded();
   for (const channel of ['chrome', 'msedge']) {
     try {
-      return await playwright.chromium.launch({ headless: true, channel });
+      return await playwright.chromium.launch({ headless, channel });
     } catch (_) {}
   }
-  return await playwright.chromium.launch({ headless: true });
+  return await playwright.chromium.launch({ headless });
 }
 
 function generateId() {
@@ -47,7 +59,10 @@ async function getOrCreatePage(sessionId, pageId) {
   if (!ctx) return { ok: false, error: '会话不存在或已过期' };
   let page = ctx.pages.get(pageId);
   if (!page || page.isClosed()) {
-    page = await ctx.browser.newPage();
+    page = await ctx.browser.newPage({
+      viewport: { width: 1280, height: 720 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
     const pid = pageId || generateId();
     ctx.pages.set(pid, page);
     return { ok: true, page, pageId: pid };

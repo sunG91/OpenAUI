@@ -167,6 +167,7 @@ function decodeImageFromDataUrl(dataUrl) {
 
 let sessionCache = null;
 let cachedModelPath = null;
+let inferenceLock = Promise.resolve();
 
 async function runDetection(imageBuffer, modelPath, classNames = [], options = {}) {
   if (!ort) throw new Error('请安装 onnxruntime-node: npm install onnxruntime-node');
@@ -178,40 +179,65 @@ async function runDetection(imageBuffer, modelPath, classNames = [], options = {
   const exists = await fsp.access(absPath).then(() => true).catch(() => false);
   if (!exists) throw new Error(`模型文件不存在: ${absPath}`);
 
-  if (!sessionCache || cachedModelPath !== absPath) {
-    sessionCache = await ort.InferenceSession.create(absPath, {
-      executionProviders: ['cpu'],
-      graphOptimizationLevel: 'all',
-    });
-    cachedModelPath = absPath;
-  }
+  const runOne = async (useFreshSession) => {
+    let session = sessionCache;
+    if (useFreshSession || !session || cachedModelPath !== absPath) {
+      sessionCache = null;
+      cachedModelPath = null;
+      session = await ort.InferenceSession.create(absPath, {
+        executionProviders: ['cpu'],
+        graphOptimizationLevel: 'all',
+      });
+      if (!useFreshSession) {
+        sessionCache = session;
+        cachedModelPath = absPath;
+      }
+    }
 
-  let origW = 640, origH = 480;
-  if (sharp) {
-    const meta = await sharp(imageBuffer).metadata();
-    origW = meta.width || origW;
-    origH = meta.height || origH;
-  } else if (jimp) {
-    const img = await jimp.read(imageBuffer);
-    origW = img.bitmap.width;
-    origH = img.bitmap.height;
-  }
+    let origW = 640, origH = 480;
+    if (sharp) {
+      const meta = await sharp(imageBuffer).metadata();
+      origW = meta.width || origW;
+      origH = meta.height || origH;
+    } else if (jimp) {
+      const img = await jimp.read(imageBuffer);
+      origW = img.bitmap.width;
+      origH = img.bitmap.height;
+    }
 
-  const inputTensor = await preprocess(imageBuffer, inputSize);
-  const feeds = {};
-  const inputName = sessionCache.inputNames[0];
-  feeds[inputName] = inputTensor;
+    const inputTensor = await preprocess(imageBuffer, inputSize);
+    const feeds = {};
+    feeds[session.inputNames[0]] = inputTensor;
+    const results = await session.run(feeds);
+    const outputTensor = results[session.outputNames[0]];
+    const detections = postprocess(outputTensor, origW, origH, inputSize, confThreshold, iouThreshold);
 
-  const results = await sessionCache.run(feeds);
-  const outputName = sessionCache.outputNames[0];
-  const outputTensor = results[outputName];
+    if (useFreshSession && session) {
+      try { session = null; } catch (_) {}
+    }
 
-  const detections = postprocess(outputTensor, origW, origH, inputSize, confThreshold, iouThreshold);
+    return detections.map((d) => ({
+      ...d,
+      className: classNames[d.class] || `class_${d.class}`,
+    }));
+  };
 
-  return detections.map((d) => ({
-    ...d,
-    className: classNames[d.class] || `class_${d.class}`,
-  }));
+  inferenceLock = inferenceLock.then(async () => {
+    try {
+      return await runOne(false);
+    } catch (e) {
+      const msg = e?.message || String(e);
+      if (/finished stream|read requests waitng/i.test(msg)) {
+        sessionCache = null;
+        cachedModelPath = null;
+        await new Promise((r) => setTimeout(r, 100));
+        return await runOne(true);
+      }
+      throw e;
+    }
+  });
+
+  return inferenceLock;
 }
 
 module.exports = {

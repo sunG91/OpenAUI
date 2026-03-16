@@ -5,6 +5,10 @@ server:
   port: 9527                    # WebSocket 服务端口
   host: "0.0.0.0"               # 监听地址，0.0.0.0 表示允许外部连接
 
+# 浏览器自动化
+browser:
+  headed: true                 # true 时显示浏览器窗口，便于观察 Agent 操作；false 为无头模式（后台运行）
+
 # 密钥验证配置
 auth:
   requireKey: true               # 是否要求密钥验证，false 则无需填写密钥即可连接

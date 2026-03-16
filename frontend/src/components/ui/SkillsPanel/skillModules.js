@@ -23,4 +23,9 @@ export const SKILL_MODULES = [
     label: '自主拆解任务',
     desc: '将自然语言目标拆分为可执行的步骤计划（Plan）',
   },
+  {
+    id: 'agent',
+    label: 'Agent 执行',
+    desc: '完整流程：拆解 → 规划 → 执行 → 反馈',
+  },
 ];

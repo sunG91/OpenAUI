@@ -14,6 +14,7 @@ import { McpConfig } from './McpConfig';
 import { McpTestArea } from './McpTestArea';
 import { SuiTestArea } from './SuiTestArea';
 import { TaskDecomposeTestArea } from './TaskDecomposeTestArea';
+import { AgentTestArea } from './AgentTestArea';
 
 export function SkillsPanel({ className = '' }) {
   const moduleIds = SKILL_MODULES.map((m) => m.id);
@@ -141,6 +142,17 @@ export function SkillsPanel({ className = '' }) {
               </SkillModuleCard>
               <div className="flex-1 min-h-0">
                 <TaskDecomposeTestArea fixedModel={fixedModel} />
+              </div>
+            </>
+          )}
+
+          {activeModuleId === 'agent' && (
+            <>
+              <SkillModuleCard id="agent" label="Agent 执行" desc="完整流程：拆解 → 规划 → 执行 → 反馈">
+                <p className="text-xs text-[var(--input-placeholder)]">输入目标后，Agent 将自动拆解、规划并依次执行工具调用。</p>
+              </SkillModuleCard>
+              <div className="flex-1 min-h-0">
+                <AgentTestArea fixedModel={fixedModel} />
               </div>
             </>
           )}

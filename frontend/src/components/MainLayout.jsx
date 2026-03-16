@@ -252,6 +252,9 @@ export function MainLayout() {
     } else if (skillId === 'task-decompose') {
       handleSidebarSelect('skills');
       window.dispatchEvent(new CustomEvent('openaui:skills-activate', { detail: { moduleId: 'task-decompose' } }));
+    } else if (skillId === 'agent') {
+      handleSidebarSelect('skills');
+      window.dispatchEvent(new CustomEvent('openaui:skills-activate', { detail: { moduleId: 'agent' } }));
     }
   };
 
