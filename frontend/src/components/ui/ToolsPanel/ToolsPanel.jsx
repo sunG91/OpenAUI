@@ -4,9 +4,15 @@
 import { useState } from 'react';
 import { TOOL_MODULES } from './toolModules';
 import { ConsoleTools } from './ConsoleTools';
+import { SystemTools } from './SystemTools';
+import { GuiTools } from './GuiTools';
+import { BrowserTools } from './BrowserTools';
 
 const TOOL_COMPONENTS = {
   ConsoleTools,
+  SystemTools,
+  GuiTools,
+  BrowserTools,
 };
 
 export function ToolsPanel({ className = '' }) {

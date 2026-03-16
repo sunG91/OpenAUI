@@ -3,15 +3,28 @@
  */
 import { API_BASE } from './base';
 
+async function parseJsonResponse(res) {
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    if (text.trimStart().startsWith('<')) {
+      throw new Error(`接口返回了 HTML 而非 JSON，可能是后端未启动或地址错误（${API_BASE}）`);
+    }
+    throw new Error(`接口返回了无效 JSON：${text.slice(0, 80)}...`);
+  }
+  if (!res.ok) throw new Error(data?.error || res.statusText);
+  return data;
+}
+
 export async function testModel(payload) {
   const res = await fetch(`${API_BASE}/api/test-model`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || res.statusText);
-  return data;
+  return parseJsonResponse(res);
 }
 
 /**
@@ -40,10 +53,21 @@ export async function testModelStream(payload, { onChunk, onDone }) {
 
   if (!res.ok) {
     try {
-      const data = await res.json();
-      onDone(new Error(data.error || res.statusText));
-    } catch {
-      onDone(new Error(res.statusText));
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        if (text.trimStart().startsWith('<')) {
+          onDone(new Error(`接口返回了 HTML 而非 JSON，可能是后端未启动或地址错误（${API_BASE}）`));
+        } else {
+          onDone(new Error(res.statusText));
+        }
+        return;
+      }
+      onDone(new Error(data?.error || res.statusText));
+    } catch (e) {
+      onDone(e);
     }
     return;
   }
@@ -51,7 +75,18 @@ export async function testModelStream(payload, { onChunk, onDone }) {
   const contentType = (res.headers.get('Content-Type') || '').toLowerCase();
   if (contentType.includes('application/json')) {
     try {
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        if (text.trimStart().startsWith('<')) {
+          onDone(new Error(`接口返回了 HTML 而非 JSON，可能是后端未启动或地址错误（${API_BASE}）`));
+        } else {
+          onDone(e);
+        }
+        return;
+      }
       const reasoning = data.reasoning_content ?? '';
       const content = data.content ?? '';
       if (data.error) onDone(new Error(data.error));
