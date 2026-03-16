@@ -85,6 +85,10 @@ env/
 # 这里默认忽略常见运行时文件，但保留仓库里已有的占位/规则文件。
 backend/data/*
 !backend/data/.gitignore
+# 视觉模型目录：保留 README，忽略 .onnx 模型文件（体积大，需本地下载）
+!backend/data/vision-models/
+!backend/data/vision-models/README.md
+backend/data/vision-models/*.onnx
 
 # --- Heavy audio / ffmpeg runtimes (本地依赖，仓库不带二进制) ---
 backend/piper/

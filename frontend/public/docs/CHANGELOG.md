@@ -7,6 +7,8 @@
 - 新增：**浏览器网页操作模块（2.3）** 完整实现：DOM 解析（提取按钮、输入框、链接等可交互元素）、脚本操作（滚动、执行脚本）、多态识别（截图 + 视觉模型识别 UI 元素）、多标签页（会话管理 session/start|end|tabs）。
 - 新增：浏览器模块化封装（backend/src/browser/：sessionManager、domParser、visionIdentify、index）。
 - 修复：GUI 截屏改用 <strong>screenshot-desktop</strong> 实现，直接返回 PNG buffer，解决 nut.js saveImage 报错问题。
+- 新增：<strong>本地离线视觉检测</strong> 工具（YOLO/ONNX），模型文件下载到本地，100% 离线运行，支持龙虾等目标检测，不依赖第三方 API。
+- 新增：<code>npm run vision:download-model</code> 一键下载 YOLOv8n 预训练模型；模型文件已加入 .gitignore，不会随仓库上传。
 
 ## 0.1.3（2026-03-14）
 

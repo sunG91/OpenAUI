@@ -26,4 +26,10 @@ export const TOOL_MODULES = [
     desc: '页面打开、点击、输入、截屏（playwright）',
     component: 'BrowserTools',
   },
+  {
+    id: 'vision',
+    label: '本地视觉检测',
+    desc: 'YOLO/ONNX 离线检测，龙虾等目标识别',
+    component: 'VisionTools',
+  },
 ];

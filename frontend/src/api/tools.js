@@ -254,3 +254,21 @@ export async function browserIdentify(payload) {
   });
   return parseJsonResponse(res);
 }
+
+// ------- 本地离线视觉检测（YOLO/ONNX）-------
+
+/** 获取本地模型列表 */
+export async function visionListModels() {
+  const res = await fetch(`${API_BASE}/api/tools/vision/models`);
+  return parseJsonResponse(res);
+}
+
+/** 本地检测（image: base64 data URL, modelId: 模型文件名） */
+export async function visionDetect(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/vision/detect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}

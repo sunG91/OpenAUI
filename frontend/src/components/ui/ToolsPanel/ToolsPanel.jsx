@@ -7,12 +7,14 @@ import { ConsoleTools } from './ConsoleTools';
 import { SystemTools } from './SystemTools';
 import { GuiTools } from './GuiTools';
 import { BrowserTools } from './BrowserTools';
+import { VisionTools } from './VisionTools';
 
 const TOOL_COMPONENTS = {
   ConsoleTools,
   SystemTools,
   GuiTools,
   BrowserTools,
+  VisionTools,
 };
 
 export function ToolsPanel({ className = '' }) {

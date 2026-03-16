@@ -231,6 +231,10 @@ function mountToolsRoutes(app) {
   // ---------- 浏览器网页操作模块（2.3：会话/DOM/脚本/多态识别）----------
   const { mountBrowserRoutes } = require('../browser');
   mountBrowserRoutes(app);
+
+  // ---------- 本地离线视觉检测（YOLO/ONNX）----------
+  const { mountVisionRoutes } = require('../vision');
+  mountVisionRoutes(app);
 }
 
 function mountGuiRoutes(app, ok, fail) {

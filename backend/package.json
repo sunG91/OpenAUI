@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "playwright:install": "cross-env PLAYWRIGHT_DOWNLOAD_HOST=https://registry.npmmirror.com/-/binary/playwright DEBUG=pw:install npx playwright install chromium"
+    "playwright:install": "cross-env PLAYWRIGHT_DOWNLOAD_HOST=https://registry.npmmirror.com/-/binary/playwright DEBUG=pw:install npx playwright install chromium",
+    "vision:download-model": "node scripts/download-yolov8.js"
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",
@@ -17,9 +18,11 @@
     "https-proxy-agent": "^8.0.0",
     "iconv-lite": "^0.6.3",
     "multer": "^2.0.2",
+    "onnxruntime-node": "^1.24.3",
     "openai": "^4.73.0",
     "playwright": "^1.49.0",
     "screenshot-desktop": "^1.15.3",
+    "sharp": "^0.33.5",
     "ws": "^8.18.0",
     "yaml": "^2.4.0"
   },

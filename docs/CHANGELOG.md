@@ -11,6 +11,7 @@
 - 新增：**浏览器网页操作模块（2.3）** 完整实现：DOM 解析、脚本操作（滚动/执行脚本）、多态识别（截图+视觉模型）、多标签页（会话管理）。
 - 新增：浏览器模块化封装（backend/src/browser/：sessionManager、domParser、visionIdentify、index）。
 - 修复：GUI 截屏改用 screenshot-desktop 实现，直接返回 PNG buffer，解决 nut.js saveImage 报错问题。
+- 新增：**本地离线视觉检测** 工具（YOLO/ONNX），`npm run vision:download-model` 一键下载模型；模型文件已加入 .gitignore。
 
 ## 0.1.3（2026-03-14）
 
