@@ -56,6 +56,7 @@ export function createToolExecutor(tools) {
     browserBack,
     browserWait,
     visionDetect,
+    visionLocate,
   } = tools;
 
   const TOOL_ALIASES = { gui_keyboard_input: 'gui_keyboard_type' };
@@ -71,6 +72,8 @@ export function createToolExecutor(tools) {
       onDetections = () => {},
       browserSessionId = null,
       browserPageId = null,
+      vendorId = '',
+      modelId = '',
     } = ctx;
 
     const obj = params || {};
@@ -199,6 +202,26 @@ export function createToolExecutor(tools) {
         result = await guiMouseClick({ x: cx, y: cy });
         break;
       }
+      case 'vision_locate': {
+        const img = obj.image || lastCapturedImage;
+        if (!img) {
+          result = { success: false, error: '无可用图片，请先 gui_screen_capture 截屏' };
+          break;
+        }
+        const prompt = obj.prompt || '确认您是真人的复选框';
+        const locateRes = await visionLocate({
+          image: img,
+          prompt,
+          vendorId: obj.vendorId || vendorId,
+          modelId: obj.modelId || modelId,
+        });
+        if (locateRes?.x != null && locateRes?.y != null) {
+          result = { success: true, x: locateRes.x, y: locateRes.y };
+        } else {
+          result = { success: false, error: locateRes?.error || '视觉定位未返回坐标' };
+        }
+        break;
+      }
       default:
         result = { success: false, error: `未知工具：${tool}（正确名称如 gui_keyboard_type、browser_type）` };
     }
@@ -213,5 +236,5 @@ export const TOOL_NAMES = [
   'console_shell', 'fs_list', 'fs_read_text', 'fs_write_text', 'process_list', 'process_kill',
   'browser_navigate', 'browser_click', 'browser_type', 'browser_screenshot',
   'browser_dom_interactive', 'browser_scroll', 'browser_execute', 'browser_back', 'browser_wait',
-  'vision_screen_detect', 'vision_detect', 'gui_click_detection',
+  'vision_screen_detect', 'vision_detect', 'vision_locate', 'gui_click_detection',
 ];

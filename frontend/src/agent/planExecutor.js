@@ -286,6 +286,14 @@ export async function executePlan(plan, options) {
     delete params.tool;
     delete params.runIf;
 
+    // 若上一步是 vision_locate 且成功，gui_mouse_click 可继承其返回的 x,y
+    const prev = results[results.length - 1];
+    if (tool === 'gui_mouse_click' && prev?.tool === 'vision_locate' && prev?.success && prev?.result?.x != null && prev?.result?.y != null) {
+      if (params.x == null && params.y == null) {
+        params = { ...params, x: prev.result.x, y: prev.result.y };
+      }
+    }
+
     const hasParams = Object.keys(params).some((k) => params[k] != null && params[k] !== '');
     if (!hasParams && testModel && tool !== 'llm_verify_content' && tool !== 'llm_extract_essence' && tool !== 'llm_extract_from_content') {
       params = await completeStepParams(
@@ -310,15 +318,17 @@ export async function executePlan(plan, options) {
       result = await runLlmExtractFromContent(results, userGoal, testModel, vendorId, modelId);
     } else {
       const execCtx = {
-      projectRoot,
-      lastCapturedImage,
-      lastDetections,
-      visionModels,
-      onCaptureImage: (img) => { lastCapturedImage = img; },
-      onDetections: (dets) => { lastDetections = dets; },
-      browserSessionId,
-      browserPageId,
-    };
+        projectRoot,
+        lastCapturedImage,
+        lastDetections,
+        visionModels,
+        onCaptureImage: (img) => { lastCapturedImage = img; },
+        onDetections: (dets) => { lastDetections = dets; },
+        browserSessionId,
+        browserPageId,
+        vendorId,
+        modelId,
+      };
       try {
         result = await executeTool(tool, params, execCtx);
       } catch (e) {
@@ -361,6 +371,35 @@ export async function executePlan(plan, options) {
         onSupervisorPlan(newSteps, decision.reason);
       } else {
         break;
+      }
+    }
+
+    // 验证码/人机校验检测：browser_execute 返回内容含验证码提示时，触发模拟操作流程
+    const CAPTCHA_INDICATORS = ['确认您是真人', '最后一步', '请解决以下难题', '人机验证', '验证'];
+    const isCaptchaContent = (text) => {
+      if (!text || typeof text !== 'string') return false;
+      const t = text.trim();
+      return CAPTCHA_INDICATORS.some((k) => t.includes(k));
+    };
+    if (tool === 'browser_execute' && success && result?.result != null) {
+      const content = typeof result.result === 'string' ? result.result : String(result.result);
+      if (isCaptchaContent(content)) {
+        const decision = await supervise({
+          userGoal,
+          results,
+          failure: { type: 'captcha', reason: '页面出现人机校验，需用模拟操作点击' },
+          retryCount: supervisorRetryCount,
+          testModel,
+          vendorId,
+          modelId,
+        });
+        if (decision.action === 'retry' && decision.steps?.length) {
+          supervisorRetryCount++;
+          const baseStep = results.length + 1;
+          const newSteps = decision.steps.map((s, i) => ({ ...s, step: baseStep + i }));
+          steps = steps.slice(0, stepIndex + 1).concat(newSteps).concat(steps.slice(stepIndex + 1));
+          onSupervisorPlan(newSteps, decision.reason);
+        }
       }
     }
 

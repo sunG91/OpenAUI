@@ -33,9 +33,10 @@ export const TOOL_SCHEMA = `
 - browser_back: 浏览器后退（返回上一页）。无参数，需在会话内使用。
 - browser_wait: 等待页面加载。参数: timeout(毫秒，默认3000)、selector(可选，等待该元素出现)
 
-【视觉检测】仅检测物体（laptop、person 等），不能识别文字
+【视觉检测】
 - vision_screen_detect: 截屏+YOLO 物体检测。参数: modelId(可选)
 - vision_detect: 对已有图片做物体检测。参数: image(base64), modelId(可选)
+- vision_locate: 截图+视觉模型定位可点击坐标（用于验证码、人机校验）。参数: image(base64), prompt(如"确认您是真人的复选框"), vendorId, modelId。返回 x,y 供 gui_mouse_click 使用。
 - gui_click_detection: 根据检测结果点击。参数: index(0起)
 
 【内容验证与精华提取】
@@ -54,7 +55,7 @@ tool 必须从以下列表精确选择（不要自创名称）：
 gui_mouse_move, gui_mouse_click, gui_keyboard_type, gui_screen_capture, console_shell,
 fs_list, fs_read_text, fs_write_text, process_list, process_kill,
 browser_navigate, browser_click, browser_type, browser_screenshot, browser_dom_interactive, browser_scroll, browser_execute, browser_back, browser_wait,
-vision_screen_detect, vision_detect, gui_click_detection, llm_verify_content, llm_extract_essence, llm_extract_from_content
+vision_screen_detect, vision_detect, vision_locate, gui_click_detection, llm_verify_content, llm_extract_essence, llm_extract_from_content
 
 输出格式（仅输出 JSON，不要 markdown、不要解释）：
 {
@@ -75,6 +76,7 @@ vision_screen_detect, vision_detect, gui_click_detection, llm_verify_content, ll
 - 提取后建议用 llm_extract_from_content 由 AI 解析页面内容，适配任意网页结构。
 - 若用户只需结果：browser_execute 取全文 → llm_extract_from_content 提取关键信息 → 返回，不要用 fs_write_text。
 - 若需保存为文件：用 fs_write_text，path 以 .md 结尾。
+- 若页面出现验证码/人机校验（如「确认您是真人」「最后一步」「请解决以下难题」）：用 gui_screen_capture 截屏 → vision_locate(image, "确认您是真人的复选框", vendorId, modelId) 获取坐标 → gui_mouse_click(x, y) 模拟点击。
 `;
 
 export const SUPERVISOR_SCHEMA = `
@@ -86,6 +88,7 @@ export const SUPERVISOR_SCHEMA = `
 
 决策原则：
 - 若为浏览器搜索任务且验证不满足：可 retry，steps 包含 llm_extract_essence（提取精华）、browser_back、browser_click 下一个结果、browser_wait、browser_execute、llm_extract_from_content、llm_verify_content
+- 若页面出现验证码/人机校验（内容含「确认您是真人」「最后一步」「请解决以下难题」）：可 retry，steps 包含 gui_screen_capture、vision_locate（prompt 填「确认您是真人的复选框」）、gui_mouse_click(x,y)、browser_wait、继续原流程
 - 若已尝试多个结果仍不满足：可 retry 换关键词，steps 包含 browser_navigate 回搜索页、browser_type 新关键词、再试
 - 若重试多次或明显无法满足：abort
 

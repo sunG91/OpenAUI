@@ -283,6 +283,16 @@ export async function visionListModels() {
   return parseJsonResponse(res);
 }
 
+/** 视觉定位：截图 + 视觉模型返回可点击坐标（用于验证码、人机校验等） */
+export async function visionLocate(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/vision/locate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}
+
 /** 本地检测（image: base64 data URL, modelId: 模型文件名） */
 export async function visionDetect(payload) {
   const res = await fetch(`${API_BASE}/api/tools/vision/detect`, {

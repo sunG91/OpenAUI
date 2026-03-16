@@ -235,6 +235,21 @@ function mountToolsRoutes(app) {
   // ---------- 本地离线视觉检测（YOLO/ONNX）----------
   const { mountVisionRoutes } = require('../vision');
   mountVisionRoutes(app);
+
+  // ---------- 视觉定位（用于验证码/人机校验等，需 GUI 模拟点击）----------
+  const { locateWithVision } = require('../browser/visionIdentify');
+  app.post('/api/tools/vision/locate', async (req, res) => {
+    try {
+      const { image, prompt, vendorId, modelId } = req.body || {};
+      if (!image || typeof image !== 'string') return fail(res, '缺少 image（base64 data URL）');
+      if (!vendorId || !modelId) return fail(res, '缺少 vendorId 或 modelId');
+      const result = await locateWithVision(image, prompt || '确认您是真人的复选框', vendorId, modelId);
+      if (!result.ok) return fail(res, result.error);
+      return ok(res, { x: result.x, y: result.y });
+    } catch (e) {
+      return fail(res, e?.message || '视觉定位失败');
+    }
+  });
 }
 
 function mountGuiRoutes(app, ok, fail) {

@@ -59,4 +59,50 @@ async function identifyWithVision(imageDataUrl, prompt, vendorId, modelId) {
   }
 }
 
-module.exports = { identifyWithVision };
+const LOCATE_PROMPT = `这是一张屏幕截图（可能包含浏览器窗口）。请找出图中「{{PROMPT}}」的中心坐标。
+
+以图片左上角为原点，单位像素。仅返回一个 JSON：{"x":数字,"y":数字}，不要其他文字。`;
+
+async function locateWithVision(imageDataUrl, prompt, vendorId, modelId) {
+  const apiKey = readApiKeys()[vendorId];
+  if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+    return { ok: false, error: '请先在设置中保存该厂商的 API Key' };
+  }
+  const provider = getProvider(vendorId);
+  if (!provider || typeof provider.chat !== 'function') {
+    return { ok: false, error: `暂不支持的厂商: ${vendorId}` };
+  }
+  const textPrompt = LOCATE_PROMPT.replace('{{PROMPT}}', (prompt || '确认您是真人的复选框').trim());
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: imageDataUrl, detail: 'high' } },
+        { type: 'text', text: textPrompt },
+      ],
+    },
+  ];
+  try {
+    const result = await provider.chat({
+      apiKey,
+      modelId,
+      messages,
+      stream: false,
+    });
+    const raw = (result?.content ?? '').trim();
+    const jsonStr = raw.replace(/^```\w*\n?|\n?```$/g, '').trim();
+    let obj;
+    try {
+      obj = JSON.parse(jsonStr);
+    } catch {
+      return { ok: false, error: '无法解析坐标' };
+    }
+    const x = Math.round(Number(obj.x) || 0);
+    const y = Math.round(Number(obj.y) || 0);
+    return { ok: true, x, y };
+  } catch (e) {
+    return { ok: false, error: e?.message || '视觉定位失败' };
+  }
+}
+
+module.exports = { identifyWithVision, locateWithVision };
