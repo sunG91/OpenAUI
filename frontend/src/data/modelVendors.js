@@ -7,6 +7,7 @@
 export const MODEL_VENDORS = [
   { id: 'siliconflow', name: '硅基流动', desc: 'SiliconFlow 模型服务' },
   { id: 'deepseek', name: 'DeepSeek 官方', desc: 'DeepSeek 官方 API' },
+  { id: 'volcengine', name: '火山引擎', desc: '火山方舟 Ark API' },
 ];
 
 /** 模型能力标签数据集（可选：聊天、图片分析、视频分析、推理等） */
@@ -32,6 +33,12 @@ export const VENDOR_MODELS = {
       stream: true,
     },
     {
+      id: 'Qwen/Qwen3-VL-32B-Instruct',
+      name: 'Qwen3-VL-32B-Instruct（轨迹流动）',
+      tags: ['视觉识别', '图片分析'],
+      stream: true,
+    },
+    {
       id: 'Pro/MiniMaxAI/MiniMax-M2.5',
       name: 'MiniMax-M2.5',
       tags: ['聊天', '推理', 'tools'],
@@ -42,6 +49,9 @@ export const VENDOR_MODELS = {
     { id: 'deepseek-chat', name: 'deepseek-chat', tags: ['聊天'], stream: true },
     { id: 'deepseek-reasoner', name: 'deepseek-reasoner（思考模式）', tags: ['聊天'], stream: true },
     { id: 'deepseek-coder', name: 'deepseek-coder', tags: ['聊天'], stream: true },
+  ],
+  volcengine: [
+    { id: 'doubao-seed-2-0-pro-260215', name: 'doubao-seed-2.0-pro（视觉）', tags: ['视觉识别', '图片分析'], stream: false },
   ],
 };
 

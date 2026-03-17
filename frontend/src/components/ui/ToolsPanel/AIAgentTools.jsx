@@ -3,12 +3,13 @@
  * 通过自然语言控制：GUI 模拟、控制台、系统操作、浏览器、本地视觉检测
  * 可操作用户电脑，支持截屏→检测→模拟点击等流程
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   guiMouseMove,
   guiMouseClick,
   guiKeyboardType,
   guiScreenCapture,
+  guiScreenSize,
   runShell,
   getToolsPlatform,
   getToolsProjectRoot,
@@ -27,13 +28,25 @@ import {
   visionListModels,
   visionDetect,
 } from '../../../api/tools';
-import { testModel } from '../../../api/modelTest';
+import { testModel, testModelStream } from '../../../api/modelTest';
 import { getSkillSettings } from '../../../api/settings';
-import { MODEL_VENDORS, VENDOR_MODELS } from '../../../data/modelVendors';
+import { MODEL_VENDORS, VENDOR_MODELS, VISION_TAGS } from '../../../data/modelVendors';
 
 function getFirstModelId(vid) {
   const list = VENDOR_MODELS[vid] || [];
   return list[0]?.id ?? '';
+}
+
+/** 获取视觉模型列表（供 YOLO+视觉结合选择） */
+function getVisionVendorsAndModels() {
+  const vendors = MODEL_VENDORS.filter((v) => {
+    const list = VENDOR_MODELS[v.id] || [];
+    return list.some((m) => m.tags?.some((t) => VISION_TAGS.includes(t)));
+  });
+  return vendors.map((v) => ({
+    ...v,
+    models: (VENDOR_MODELS[v.id] || []).filter((m) => m.tags?.some((t) => VISION_TAGS.includes(t))),
+  }));
 }
 
 function resolvePath(trimmed, projectRoot) {
@@ -62,6 +75,20 @@ const COCO_CLASS_NAMES = [
   'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
   'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush',
 ];
+
+/** UI 元素模型类别（按钮、输入框等） */
+const UI_CLASS_NAMES = [
+  'button', 'input', 'checkbox', 'text', 'icon', 'tab', 'slider', 'dropdown',
+  'link', 'image', 'list', 'menu', 'window', 'scrollbar', 'label', 'radio',
+];
+
+function getClassNamesForModel(modelId, preset) {
+  if (preset === 'ui') return UI_CLASS_NAMES;
+  if (preset === 'coco') return COCO_CLASS_NAMES;
+  const id = (modelId || '').toLowerCase();
+  if (id.includes('ui') || id.includes('button') || id.includes('web-ui') || id.includes('windows-ui')) return UI_CLASS_NAMES;
+  return COCO_CLASS_NAMES;
+}
 
 const AGENT_TOOL_SCHEMA = `
 可选工具（输出 JSON，仅一个 tool 调用；根据用户指令选择最合适的工具）：
@@ -173,6 +200,7 @@ function AIAgentToolsView() {
 
 /** 导出供 VisionTools 等复用 */
 export function AIAgentTestView() {
+  const [subMode, setSubMode] = useState('nl'); // 'nl' 自然语言 | 'combine' YOLO+视觉结合
   const [instruction, setInstruction] = useState('截屏并检测屏幕上的目标');
   const [vendorId, setVendorId] = useState(MODEL_VENDORS[0]?.id ?? '');
   const [modelId, setModelId] = useState(() => getFirstModelId(MODEL_VENDORS[0]?.id ?? ''));
@@ -183,11 +211,40 @@ export function AIAgentTestView() {
   const [captureImage, setCaptureImage] = useState('');
   const [lastDetections, setLastDetections] = useState([]);
   const [lastCapturedImage, setLastCapturedImage] = useState('');
+  const [lastScreenSize, setLastScreenSize] = useState(null); // 截屏时 CMD 获取的屏幕尺寸
   const [visionModels, setVisionModels] = useState([]);
   const [visionModelsLoading, setVisionModelsLoading] = useState(false);
   const [visionModelsError, setVisionModelsError] = useState('');
   const [showRawDetection, setShowRawDetection] = useState(false);
   const [rawToolResult, setRawToolResult] = useState(null);
+
+  // YOLO+视觉结合模式
+  const [combineImageUrl, setCombineImageUrl] = useState('');
+  const [combineScreenSize, setCombineScreenSize] = useState(null); // 截屏时 CMD 获取的屏幕尺寸
+  const [combineDetections, setCombineDetections] = useState([]);
+  const [combineResult, setCombineResult] = useState('');
+  const [combineLoading, setCombineLoading] = useState(false);
+  const [combineYoloModelId, setCombineYoloModelId] = useState('');
+  const [combineClassPreset, setCombineClassPreset] = useState('auto'); // auto | coco | ui
+  const [visionVendorId, setVisionVendorId] = useState('');
+  const [visionModelId, setVisionModelId] = useState('');
+  const [combinePrompt, setCombinePrompt] = useState('根据图中检测到的元素，描述屏幕内容并指出可点击的按钮或输入框');
+  const visionOptions = getVisionVendorsAndModels();
+  const selectedVisionVendor = visionOptions.find((v) => v.id === visionVendorId) || visionOptions[0];
+  const visionModelsList = selectedVisionVendor?.models || [];
+  useEffect(() => {
+    if (visionOptions.length && !visionVendorId) {
+      const v = visionOptions[0];
+      setVisionVendorId(v?.id ?? '');
+      setVisionModelId((v?.models?.[0]?.id) ?? '');
+    }
+  }, [visionOptions.length]);
+  useEffect(() => {
+    const list = visionOptions.find((x) => x.id === visionVendorId)?.models || [];
+    if (list.length && !list.find((m) => m.id === visionModelId)) {
+      setVisionModelId(list[0]?.id ?? '');
+    }
+  }, [visionVendorId]);
 
   const loadVisionModels = async () => {
     setVisionModelsLoading(true);
@@ -205,6 +262,95 @@ export function AIAgentTestView() {
   useEffect(() => {
     loadVisionModels();
   }, []);
+
+  useEffect(() => {
+    if (visionModels.length && !combineYoloModelId) setCombineYoloModelId(visionModels[0]?.id ?? '');
+  }, [visionModels.length]);
+
+  const combineFileInputRef = useRef(null);
+  const onCombineFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) {
+        setCombineImageUrl(reader.result);
+        setCombineScreenSize(null); // 上传图片无屏幕尺寸
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const runCombineCapture = async () => {
+    setCombineLoading(true);
+    try {
+      const cap = await guiScreenCapture();
+      if (cap?.image) {
+        setCombineImageUrl(cap.image);
+        setCombineScreenSize(cap.screenWidth != null && cap.screenHeight != null
+          ? { width: cap.screenWidth, height: cap.screenHeight }
+          : null);
+      } else {
+        setCombineResult('截屏失败');
+      }
+    } catch (e) {
+      setCombineResult(`截屏失败：${e?.message || String(e)}`);
+    } finally {
+      setCombineLoading(false);
+    }
+  };
+
+  const runCombine = async () => {
+    if (!combineImageUrl || !visionVendorId || !visionModelId) {
+      setCombineResult('请先截屏/上传图片，并选择视觉模型');
+      return;
+    }
+    setCombineLoading(true);
+    setCombineResult('分析中…');
+    setCombineDetections([]);
+    try {
+      const detectRes = await visionDetect({
+        image: combineImageUrl,
+        modelId: combineYoloModelId || visionModels[0]?.id,
+        classNames: getClassNamesForModel(combineYoloModelId || visionModels[0]?.id, combineClassPreset),
+      });
+      const dets = detectRes.detections || [];
+      setCombineDetections(dets);
+      const yoloDesc = dets.length
+        ? dets.map((d, i) => `[${i}] ${d.className} 置信度${Math.round((d.confidence > 1 ? d.confidence / 1000 : d.confidence) * 100)}% 位置(${d.bbox?.join(',')})`).join('\n')
+        : '未检测到元素';
+      const screenHint = combineScreenSize ? `\n\n当前屏幕分辨率：${combineScreenSize.width}×${combineScreenSize.height}（截屏时通过 CMD 获取）。` : '';
+      const text = `${combinePrompt}\n\n--- YOLO 检测结果（共 ${dets.length} 个）---\n${yoloDesc}${screenHint}\n\n请结合图片与上述检测结果回答。`;
+      const messages = [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: combineImageUrl, detail: 'high' } },
+            { type: 'text', text },
+          ],
+        },
+      ];
+      let accumulated = '';
+      await testModelStream(
+        { vendorId: visionVendorId, modelId: visionModelId, messages },
+        {
+          onChunk: ({ reasoning_content = '', content = '' }) => {
+            accumulated += reasoning_content + content;
+            setCombineResult(accumulated);
+          },
+          onDone: (err) => {
+            if (err) setCombineResult(`分析失败：${err?.message || String(err)}`);
+            setCombineLoading(false);
+          },
+        }
+      );
+    } catch (e) {
+      setCombineResult(`分析失败：${e?.message || String(e)}`);
+    } finally {
+      setCombineLoading(false);
+    }
+  };
 
   const run = async () => {
     const prompt = instruction.trim();
@@ -298,6 +444,9 @@ ${AGENT_TOOL_SCHEMA}
           if (toolResult?.image) {
             setLastCapturedImage(toolResult.image);
             setCaptureImage(toolResult.image);
+            setLastScreenSize(toolResult.screenWidth != null && toolResult.screenHeight != null
+              ? { width: toolResult.screenWidth, height: toolResult.screenHeight }
+              : null);
           }
           break;
         }
@@ -358,6 +507,9 @@ ${AGENT_TOOL_SCHEMA}
           }
           setLastCapturedImage(cap.image);
           setCaptureImage(cap.image);
+          setLastScreenSize(cap.screenWidth != null && cap.screenHeight != null
+            ? { width: cap.screenWidth, height: cap.screenHeight }
+            : null);
           const modelIdToUse = obj.modelId || visionModels[0]?.id;
           const detectRes = await visionDetect({
             image: cap.image,
@@ -368,6 +520,7 @@ ${AGENT_TOOL_SCHEMA}
           toolResult = {
             ...detectRes,
             _meta: { modelUsed: detectRes.modelUsed || modelIdToUse, engine: 'YOLO/ONNX' },
+            screenSize: cap.screenWidth != null && cap.screenHeight != null ? `${cap.screenWidth}×${cap.screenHeight}` : undefined,
           };
           break;
         }
@@ -399,8 +552,18 @@ ${AGENT_TOOL_SCHEMA}
           }
           const d = dets[idx];
           const bbox = d.bbox || [];
-          const cx = Math.round(bbox[0] + (bbox[2] || 0) / 2);
-          const cy = Math.round(bbox[1] + (bbox[3] || 0) / 2);
+          let cx = Math.round(bbox[0] + (bbox[2] || 0) / 2);
+          let cy = Math.round(bbox[1] + (bbox[3] || 0) / 2);
+          if (lastScreenSize) {
+            try {
+              const nut = await guiScreenSize();
+              if (nut?.width > 0 && nut?.height > 0 && lastScreenSize.width > 0 && lastScreenSize.height > 0
+                && (nut.width !== lastScreenSize.width || nut.height !== lastScreenSize.height)) {
+                cx = Math.round(cx * (nut.width / lastScreenSize.width));
+                cy = Math.round(cy * (nut.height / lastScreenSize.height));
+              }
+            } catch (_) {}
+          }
           toolResult = await guiMouseClick({ x: cx, y: cy });
           break;
         }
@@ -424,9 +587,10 @@ ${AGENT_TOOL_SCHEMA}
           const name = d.className || COCO_CLASS_NAMES[d.class] || `class_${d.class}`;
           return `${i}. ${name} (${Math.round(conf)}%) 位置: x=${d.bbox?.[0] ?? 0} y=${d.bbox?.[1] ?? 0} 宽=${d.bbox?.[2] ?? 0} 高=${d.bbox?.[3] ?? 0}`;
         }).join('\n');
+        const screenHint = lastScreenSize ? `\n当前屏幕分辨率：${lastScreenSize.width}×${lastScreenSize.height}（截屏时通过 CMD 获取）。` : '';
         const synthMsg = `用户的问题是：${prompt}
 
-以下是 YOLO 检测到的屏幕目标（类别、置信度、位置）：
+以下是 YOLO 检测到的屏幕目标（类别、置信度、位置）：${screenHint}
 ${formatted}
 
 请根据以上检测结果，用自然语言描述屏幕的内容和布局，回答用户的问题。`;
@@ -451,101 +615,201 @@ ${formatted}
 
   return (
     <div className="flex flex-col h-full min-h-0 gap-3">
-      <div className="flex-shrink-0 rounded-lg border border-[var(--input-bar-border)] bg-white p-3 space-y-2">
-        <div className="text-xs font-medium text-[var(--input-placeholder)]">自然语言指令</div>
-        <input
-          type="text"
-          value={instruction}
-          onChange={(e) => setInstruction(e.target.value)}
-          placeholder="例如：截屏并检测、点击第一个目标、打开百度"
-          className="w-full px-2 py-1.5 text-[11px] border border-[var(--input-bar-border)] rounded bg-white focus:ring-1 focus:ring-blue-400 outline-none"
-        />
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="grid grid-cols-2 gap-1.5">
-            <div>
-              <label className="block text-[10px] text-[var(--input-placeholder)] mb-0.5">厂商</label>
-              <select
-                value={vendorId}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setVendorId(v);
-                  setModelId(getFirstModelId(v));
-                }}
-                className="w-full px-1.5 py-1 text-[11px] border rounded"
-              >
-                {MODEL_VENDORS.map((v) => (
+      <div className="flex-shrink-0 flex gap-2 border-b border-[var(--input-bar-border)] pb-2">
+        <button
+          type="button"
+          onClick={() => setSubMode('nl')}
+          className={`px-2 py-1 text-[11px] rounded ${subMode === 'nl' ? 'bg-blue-600 text-white' : 'bg-[#f0f0f0] text-[var(--input-placeholder)]'}`}
+        >
+          自然语言
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubMode('combine')}
+          className={`px-2 py-1 text-[11px] rounded ${subMode === 'combine' ? 'bg-blue-600 text-white' : 'bg-[#f0f0f0] text-[var(--input-placeholder)]'}`}
+        >
+          YOLO + 视觉模型结合
+        </button>
+      </div>
+
+      {subMode === 'nl' && (
+        <div className="flex-shrink-0 rounded-lg border border-[var(--input-bar-border)] bg-white p-3 space-y-2">
+          <div className="text-xs font-medium text-[var(--input-placeholder)]">自然语言指令</div>
+          <input
+            type="text"
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            placeholder="例如：截屏并检测、点击第一个目标、打开百度"
+            className="w-full px-2 py-1.5 text-[11px] border border-[var(--input-bar-border)] rounded bg-white focus:ring-1 focus:ring-blue-400 outline-none"
+          />
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="block text-[10px] text-[var(--input-placeholder)] mb-0.5">厂商</label>
+                <select
+                  value={vendorId}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVendorId(v);
+                    setModelId(getFirstModelId(v));
+                  }}
+                  className="w-full px-1.5 py-1 text-[11px] border rounded"
+                >
+                  {MODEL_VENDORS.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-[var(--input-placeholder)] mb-0.5">模型</label>
+                <select
+                  value={modelId}
+                  onChange={(e) => setModelId(e.target.value)}
+                  className="w-full px-1.5 py-1 text-[11px] border rounded"
+                >
+                  {(VENDOR_MODELS[vendorId] || []).map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <span className="text-[10px] text-[var(--input-placeholder)]">
+              {visionModelsLoading ? '加载视觉模型中…' : visionModelsError ? (
+                <span className="text-amber-600">加载失败，<button type="button" onClick={loadVisionModels} className="underline hover:no-underline">重试</button></span>
+              ) : (
+                `视觉模型: ${visionModels.length} 个`
+              )}
+            </span>
+          </div>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={run}
+            className="px-3 py-1.5 rounded text-[11px] font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {loading ? 'AI 解析并执行中…' : '开始 AI 测试'}
+          </button>
+        </div>
+      )}
+
+      {subMode === 'combine' && (
+        <div className="flex-shrink-0 rounded-lg border border-[var(--input-bar-border)] bg-white p-3 space-y-3">
+          <div className="text-xs font-medium text-[var(--input-placeholder)]">YOLO + 视觉模型结合</div>
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] text-[var(--input-placeholder)] w-14">输入:</span>
+              {combineScreenSize && (
+                <span className="text-[9px] text-amber-600">屏幕 {combineScreenSize.width}×{combineScreenSize.height}</span>
+              )}
+              <input ref={combineFileInputRef} type="file" accept="image/*" className="hidden" onChange={onCombineFileChange} />
+              <button type="button" onClick={() => combineFileInputRef.current?.click()} className="px-2 py-1.5 rounded text-[11px] font-medium border border-[var(--input-bar-border)] hover:bg-[#f0f0f0]">
+                上传图片
+              </button>
+              <button type="button" onClick={runCombineCapture} disabled={combineLoading} className="px-2 py-1.5 rounded text-[11px] font-medium bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
+                截屏
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] text-[var(--input-placeholder)] w-14">YOLO:</span>
+              <button type="button" onClick={loadVisionModels} disabled={visionModelsLoading} className="px-2 py-1 rounded text-[10px] font-medium bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50" title="刷新 YOLO 模型列表">
+                {visionModelsLoading ? '加载中…' : '刷新'}
+              </button>
+              <select value={combineYoloModelId} onChange={(e) => setCombineYoloModelId(e.target.value)} className="px-2 py-1 text-[11px] border rounded min-w-[100px]" title="yolov8n/s/m 或 UI 专用模型，运行 npm run vision:download-all 可下载更多">
+                {visionModels.length === 0 ? (
+                  <option value="">{visionModelsLoading ? '加载中…' : '暂无模型'}</option>
+                ) : null}
+                {visionModels.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              <select value={combineClassPreset} onChange={(e) => setCombineClassPreset(e.target.value)} className="px-2 py-1 text-[11px] border rounded" title="识别元素类别：UI 模型选 UI 元素">
+                <option value="auto">类别: 自动</option>
+                <option value="coco">类别: 通用(COCO)</option>
+                <option value="ui">类别: UI 元素</option>
+              </select>
+              {visionModels.length > 0 && visionModels.length < 3 && (
+                <span className="text-[9px] text-amber-600" title="backend 目录执行 npm run vision:download-all">可下载更多</span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] text-[var(--input-placeholder)] w-14">视觉:</span>
+              <select value={visionVendorId} onChange={(e) => { setVisionVendorId(e.target.value); setVisionModelId(''); }} className="px-2 py-1 text-[11px] border rounded" title="在线视觉模型厂商">
+                {visionOptions.map((v) => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="block text-[10px] text-[var(--input-placeholder)] mb-0.5">模型</label>
-              <select
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className="w-full px-1.5 py-1 text-[11px] border rounded"
-              >
-                {(VENDOR_MODELS[vendorId] || []).map((m) => (
+              <select value={visionModelId} onChange={(e) => setVisionModelId(e.target.value)} className="px-2 py-1 text-[11px] border rounded min-w-[140px]" title="视觉大模型（如 Qwen3.5-397B）">
+                {visionModelsList.map((m) => (
                   <option key={m.id} value={m.id}>{m.name}</option>
                 ))}
               </select>
             </div>
-          </div>
-          <span className="text-[10px] text-[var(--input-placeholder)]">
-            {visionModelsLoading ? '加载视觉模型中…' : visionModelsError ? (
-              <span className="text-amber-600">加载失败，<button type="button" onClick={loadVisionModels} className="underline hover:no-underline">重试</button></span>
-            ) : (
-              `视觉模型: ${visionModels.length} 个`
-            )}
-          </span>
-        </div>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={run}
-          className="px-3 py-1.5 rounded text-[11px] font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-        >
-          {loading ? 'AI 解析并执行中…' : '开始 AI 测试'}
-        </button>
-      </div>
-
-      <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-[var(--input-bar-border)] bg-white overflow-hidden">
-        <div className="flex-shrink-0 px-2 py-1.5 border-b bg-[#f8f9fa] text-[10px] font-medium text-[var(--input-placeholder)] flex justify-between items-center">
-          <span>{viewMode === 'result' ? '执行结果' : viewMode === 'raw' ? '原始检测结果' : 'AI 原始输出'}</span>
-          <div className="flex items-center gap-2">
-            {lastDetections.length > 0 && (
-              <span className="text-[9px] text-green-600">已缓存 {lastDetections.length} 个检测目标</span>
-            )}
-            <div className="flex gap-2">
-              {aiRaw && (
-                <button
-                  type="button"
-                  onClick={() => setViewMode((v) => (v === 'result' ? 'ai' : 'result'))}
-                  className="text-[9px] text-blue-600 hover:underline"
-                >
-                  {viewMode === 'result' ? '查看 AI 原始输出' : '查看执行结果'}
-                </button>
-              )}
-              {showRawDetection && (
-                <button
-                  type="button"
-                  onClick={() => setViewMode((v) => (v === 'raw' ? 'result' : 'raw'))}
-                  className="text-[9px] text-blue-600 hover:underline"
-                >
-                  {viewMode === 'raw' ? '查看描述' : '查看原始检测结果'}
-                </button>
-              )}
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-[10px] text-[var(--input-placeholder)] w-14">提示:</span>
+              <input type="text" value={combinePrompt} onChange={(e) => setCombinePrompt(e.target.value)} placeholder="结合分析提示词" className="flex-1 min-w-[180px] px-2 py-1 text-[11px] border rounded" />
+              <button type="button" onClick={runCombine} disabled={combineLoading || !combineImageUrl} className="px-2 py-1.5 rounded text-[11px] font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50">
+                {combineLoading ? '分析中…' : '结合分析'}
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-[var(--input-bar-border)] bg-white overflow-hidden">
+        <div className="flex-shrink-0 px-2 py-1.5 border-b bg-[#f8f9fa] text-[10px] font-medium text-[var(--input-placeholder)] flex justify-between items-center">
+          <span>
+            {subMode === 'combine'
+              ? '视觉模型分析'
+              : viewMode === 'result'
+                ? '执行结果'
+                : viewMode === 'raw'
+                  ? '原始检测结果'
+                  : 'AI 原始输出'}
+          </span>
+          {subMode === 'nl' && (
+            <div className="flex items-center gap-2">
+              {lastDetections.length > 0 && (
+                <span className="text-[9px] text-green-600">已缓存 {lastDetections.length} 个检测目标</span>
+              )}
+              <div className="flex gap-2">
+                {aiRaw && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode((v) => (v === 'result' ? 'ai' : 'result'))}
+                    className="text-[9px] text-blue-600 hover:underline"
+                  >
+                    {viewMode === 'result' ? '查看 AI 原始输出' : '查看执行结果'}
+                  </button>
+                )}
+                {showRawDetection && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode((v) => (v === 'raw' ? 'result' : 'raw'))}
+                    className="text-[9px] text-blue-600 hover:underline"
+                  >
+                    {viewMode === 'raw' ? '查看描述' : '查看原始检测结果'}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <div className="flex-1 min-h-0 flex gap-2 p-2 overflow-auto">
-          <div className="flex-1 min-w-0 flex flex-col gap-1">
-            <pre className="flex-1 min-w-0 text-[11px] font-mono bg-[#111827] text-[#e5e7eb] p-2 rounded overflow-auto whitespace-pre-wrap break-all">
-              {(viewMode === 'result' ? execResult : viewMode === 'raw' ? JSON.stringify(rawToolResult, null, 2) : aiRaw) || '输入指令并点击「开始 AI 测试」'}
+          <div className="flex-1 min-w-0 flex flex-col gap-1 min-h-0">
+            <pre className="flex-1 min-w-0 min-h-0 text-[11px] font-mono bg-[#111827] text-[#e5e7eb] p-2 rounded overflow-auto whitespace-pre-wrap break-all">
+              {subMode === 'combine'
+                ? (combineResult || '截屏/上传图片后，选择 YOLO 模型和视觉模型，点击「结合分析」')
+                : (viewMode === 'result' ? execResult : viewMode === 'raw' ? JSON.stringify(rawToolResult, null, 2) : aiRaw) || '输入指令并点击「开始 AI 测试」'}
             </pre>
           </div>
-          {captureImage && (
-            <img src={captureImage} alt="截屏/检测" className="max-h-48 object-contain rounded border flex-shrink-0" />
+          {(subMode === 'combine' ? combineImageUrl : captureImage) && (
+            <div className="flex-shrink-0 flex items-center justify-center min-w-[200px] min-h-[120px] max-h-full">
+              <img
+                src={subMode === 'combine' ? combineImageUrl : captureImage}
+                alt="截屏/检测"
+                className="max-h-full max-w-full object-contain rounded border"
+              />
+            </div>
           )}
         </div>
       </div>

@@ -237,7 +237,7 @@ function mountToolsRoutes(app) {
   mountVisionRoutes(app);
 
   // ---------- 视觉定位（用于验证码/人机校验等，需 GUI 模拟点击）----------
-  const { locateWithVision } = require('../browser/visionIdentify');
+  const { locateWithVision, verifyLocateWithVision, verifyClickEffect } = require('../browser/visionIdentify');
   app.post('/api/tools/vision/locate', async (req, res) => {
     try {
       const { image, prompt, vendorId, modelId } = req.body || {};
@@ -245,9 +245,35 @@ function mountToolsRoutes(app) {
       if (!vendorId || !modelId) return fail(res, '缺少 vendorId 或 modelId');
       const result = await locateWithVision(image, prompt || '确认您是真人的复选框', vendorId, modelId);
       if (!result.ok) return fail(res, result.error);
-      return ok(res, { x: result.x, y: result.y });
+      return ok(res, { x: result.x, y: result.y, element: result.element, confidence: result.confidence });
     } catch (e) {
       return fail(res, e?.message || '视觉定位失败');
+    }
+  });
+  /** 点击坐标审核：接收已标注坐标的截图，AI 验证或修正坐标 */
+  app.post('/api/tools/vision/locate/verify', async (req, res) => {
+    try {
+      const { image, prompt, vendorId, modelId } = req.body || {};
+      if (!image || typeof image !== 'string') return fail(res, '缺少 image（base64 data URL，需已标注坐标）');
+      if (!vendorId || !modelId) return fail(res, '缺少 vendorId 或 modelId');
+      const result = await verifyLocateWithVision(image, prompt || '确认您是真人的复选框', vendorId, modelId);
+      if (!result.ok) return fail(res, result.error);
+      return ok(res, { correct: result.correct, x: result.x, y: result.y });
+    } catch (e) {
+      return fail(res, e?.message || '视觉审核失败');
+    }
+  });
+  /** 点击效果校验：点击后截图，判断目标是否已消失/状态改变（OpenClaw 闭环校验） */
+  app.post('/api/tools/vision/click/verify', async (req, res) => {
+    try {
+      const { image, prompt, vendorId, modelId } = req.body || {};
+      if (!image || typeof image !== 'string') return fail(res, '缺少 image（base64 data URL，点击后截图）');
+      if (!vendorId || !modelId) return fail(res, '缺少 vendorId 或 modelId');
+      const result = await verifyClickEffect(image, prompt || '目标元素', vendorId, modelId);
+      if (!result.ok) return fail(res, result.error);
+      return ok(res, { success: result.success });
+    } catch (e) {
+      return fail(res, e?.message || '点击效果校验失败');
     }
   });
 }
@@ -263,7 +289,18 @@ function mountGuiRoutes(app, ok, fail) {
     return;
   }
 
-  const { mouse, keyboard, straightTo, Point, Button } = nut;
+  const { mouse, keyboard, straightTo, Point, Button, screen } = nut;
+
+  /** GET /api/tools/gui/screen/size — nut.js 获取的屏幕宽高（鼠标移动使用的坐标系） */
+  app.get('/api/tools/gui/screen/size', async (req, res) => {
+    try {
+      const width = await screen.width();
+      const height = await screen.height();
+      return ok(res, { width, height });
+    } catch (e) {
+      return fail(res, e?.message || '获取屏幕尺寸失败');
+    }
+  });
 
   /** POST /api/tools/gui/mouse/move — 鼠标移动到 (x, y) */
   app.post('/api/tools/gui/mouse/move', async (req, res) => {
@@ -278,10 +315,11 @@ function mountGuiRoutes(app, ok, fail) {
     }
   });
 
-  /** POST /api/tools/gui/mouse/click — 鼠标点击（左键/右键） */
+  /** POST /api/tools/gui/mouse/click — 鼠标点击（左键/右键，支持双击） */
   app.post('/api/tools/gui/mouse/click', async (req, res) => {
     try {
       const button = (req.body?.button || 'left').toLowerCase();
+      const doubleClick = req.body?.doubleClick === true;
       if (req.body?.x != null && req.body?.y != null) {
         const x = Number(req.body.x);
         const y = Number(req.body.y);
@@ -289,12 +327,13 @@ function mountGuiRoutes(app, ok, fail) {
           await mouse.move(straightTo(new Point(x, y)));
         }
       }
-      if (button === 'right') {
-        await mouse.click(Button.RIGHT);
+      const btn = button === 'right' ? Button.RIGHT : Button.LEFT;
+      if (doubleClick) {
+        await mouse.doubleClick(btn);
       } else {
-        await mouse.click(Button.LEFT);
+        await mouse.click(btn);
       }
-      return ok(res, { button });
+      return ok(res, { button, doubleClick });
     } catch (e) {
       return fail(res, e?.message || '鼠标点击失败');
     }
@@ -315,7 +354,17 @@ function mountGuiRoutes(app, ok, fail) {
   mountGuiScreenCapture(app, ok, fail);
 }
 
-/** GUI 截屏：使用 screenshot-desktop（比 nut.js saveImage 更稳定） */
+/** 从 PNG buffer 解析宽高（IHDR 在 offset 16-23），与截屏图片完全一致，避免 DPI 缩放导致 CMD 返回逻辑分辨率 */
+function getPngDimensions(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 24) return null;
+  if (buf[0] !== 0x89 || buf[1] !== 0x50 || buf[2] !== 0x4E) return null;
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  if (width > 0 && width < 65536 && height > 0 && height < 65536) return { width, height };
+  return null;
+}
+
+/** GUI 截屏：使用 screenshot-desktop，截屏后从 PNG 解析尺寸（与图片一致，避免 DPI 缩放导致 CMD 返回 1920x1200 而非实际 2880x1800） */
 function mountGuiScreenCapture(app, ok, fail) {
   app.get('/api/tools/gui/screen/capture', async (req, res) => {
     let screenshotDesktop;
@@ -327,7 +376,13 @@ function mountGuiScreenCapture(app, ok, fail) {
     try {
       const buf = await screenshotDesktop({ format: 'png' });
       const base64 = buf.toString('base64');
-      return ok(res, { image: `data:image/png;base64,${base64}` });
+      const payload = { image: `data:image/png;base64,${base64}` };
+      const dims = getPngDimensions(buf);
+      if (dims) {
+        payload.screenWidth = dims.width;
+        payload.screenHeight = dims.height;
+      }
+      return ok(res, payload);
     } catch (e) {
       return fail(res, e?.message || '截屏失败');
     }

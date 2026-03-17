@@ -231,6 +231,7 @@ export async function executePlan(plan, options) {
 
   let lastCapturedImage = null;
   let lastDetections = [];
+  let lastImageSize = null;
   let visionModels = [];
   let browserSessionId = null;
   let browserPageId = null;
@@ -321,9 +322,11 @@ export async function executePlan(plan, options) {
         projectRoot,
         lastCapturedImage,
         lastDetections,
+        lastImageSize,
         visionModels,
         onCaptureImage: (img) => { lastCapturedImage = img; },
         onDetections: (dets) => { lastDetections = dets; },
+        onCaptureImageSize: (dims) => { lastImageSize = dims; },
         browserSessionId,
         browserPageId,
         vendorId,

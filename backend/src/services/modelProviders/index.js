@@ -4,6 +4,7 @@
  */
 const deepseek = require('./deepseek');
 const siliconflow = require('./siliconflow');
+const volcengine = require('./volcengine');
 
 const registry = new Map();
 function register(provider) {
@@ -18,6 +19,7 @@ function getProvider(vendorId) {
 // 注册内置厂商
 register(deepseek);
 register(siliconflow);
+register(volcengine);
 
 module.exports = { register, getProvider };
 

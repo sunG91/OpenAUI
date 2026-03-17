@@ -8,7 +8,9 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "playwright:install": "cross-env PLAYWRIGHT_DOWNLOAD_HOST=https://registry.npmmirror.com/-/binary/playwright DEBUG=pw:install npx playwright install chromium",
-    "vision:download-model": "node scripts/download-yolov8.js"
+    "vision:download-model": "node scripts/download-yolov8.js",
+    "vision:download-all": "node scripts/download-vision-models.js",
+    "vision:convert-pt": "node scripts/convert-pt-to-onnx.js"
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",

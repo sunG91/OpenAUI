@@ -134,6 +134,12 @@ export async function guiScreenCapture(region) {
   return parseJsonResponse(res);
 }
 
+/** nut.js 获取的屏幕宽高（鼠标移动使用的坐标系，可能与截屏 PNG 尺寸不同） */
+export async function guiScreenSize() {
+  const res = await fetch(`${API_BASE}/api/tools/gui/screen/size`);
+  return parseJsonResponse(res);
+}
+
 // ------- 浏览器网页操作（2.3：会话/DOM/脚本/多态识别）-------
 
 /** 创建会话（多标签页） */
@@ -286,6 +292,26 @@ export async function visionListModels() {
 /** 视觉定位：截图 + 视觉模型返回可点击坐标（用于验证码、人机校验等） */
 export async function visionLocate(payload) {
   const res = await fetch(`${API_BASE}/api/tools/vision/locate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 点击坐标审核：接收已标注坐标的截图，AI 验证或修正坐标 */
+export async function visionLocateVerify(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/vision/locate/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}
+
+/** 点击效果校验：点击后截图，判断目标是否已消失/状态改变（OpenClaw 闭环校验） */
+export async function visionClickVerify(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/vision/click/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

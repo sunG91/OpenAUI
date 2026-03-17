@@ -127,7 +127,7 @@ function postprocess(outputTensor, origW, origH, inputSize, confThreshold = 0.25
       bbox: [Math.round(x1), Math.round(y1), Math.round(x2 - x1), Math.round(y2 - y1)],
     });
   }
-  return nms(detections, iouThreshold);
+  return nmsPerClass(detections, iouThreshold);
 }
 
 function iou(box1, box2) {
@@ -143,17 +143,26 @@ function iou(box1, box2) {
   return inter / (area1 + area2 - inter);
 }
 
-function nms(detections, iouThreshold) {
-  const sorted = [...detections].sort((a, b) => b.confidence - a.confidence);
+/** 按类别分别做 NMS：不同类别（如 laptop 与 mouse）互不抑制，避免大框吞掉小框 */
+function nmsPerClass(detections, iouThreshold) {
+  const byClass = new Map();
+  for (const d of detections) {
+    const c = d.class;
+    if (!byClass.has(c)) byClass.set(c, []);
+    byClass.get(c).push(d);
+  }
   const result = [];
-  while (sorted.length > 0) {
-    const top = sorted.shift();
-    result.push(top);
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      if (iou(top, sorted[i]) >= iouThreshold) sorted.splice(i, 1);
+  for (const list of byClass.values()) {
+    const sorted = [...list].sort((a, b) => b.confidence - a.confidence);
+    while (sorted.length > 0) {
+      const top = sorted.shift();
+      result.push(top);
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        if (iou(top, sorted[i]) >= iouThreshold) sorted.splice(i, 1);
+      }
     }
   }
-  return result;
+  return result.sort((a, b) => b.confidence - a.confidence);
 }
 
 /**

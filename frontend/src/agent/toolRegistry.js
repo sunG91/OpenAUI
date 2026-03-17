@@ -40,6 +40,7 @@ export function createToolExecutor(tools) {
     guiMouseClick,
     guiKeyboardType,
     guiScreenCapture,
+    guiScreenSize,
     runShell,
     systemFsList,
     systemFsReadText,
@@ -67,9 +68,11 @@ export function createToolExecutor(tools) {
       projectRoot = '',
       lastCapturedImage = null,
       lastDetections = [],
+      lastImageSize = null,
       visionModels = [],
       onCaptureImage = () => {},
       onDetections = () => {},
+      onCaptureImageSize = () => {},
       browserSessionId = null,
       browserPageId = null,
       vendorId = '',
@@ -99,6 +102,7 @@ export function createToolExecutor(tools) {
       case 'gui_screen_capture': {
         result = await guiScreenCapture(obj.region);
         if (result?.image) onCaptureImage(result.image);
+        if (result?.screenWidth != null && result?.screenHeight != null) onCaptureImageSize({ width: result.screenWidth, height: result.screenHeight });
         break;
       }
       case 'console_shell':
@@ -160,6 +164,9 @@ export function createToolExecutor(tools) {
           break;
         }
         onCaptureImage(cap.image);
+        if (typeof onCaptureImageSize === 'function' && cap.screenWidth != null && cap.screenHeight != null) {
+          onCaptureImageSize({ width: cap.screenWidth, height: cap.screenHeight });
+        }
         const modelIdToUse = obj.modelId || visionModels[0]?.id;
         const detectRes = await visionDetect({
           image: cap.image,
@@ -168,7 +175,12 @@ export function createToolExecutor(tools) {
         });
         const dets = detectRes.detections || [];
         onDetections(dets);
-        result = { ...detectRes, _meta: { modelUsed: detectRes.modelUsed || modelIdToUse, engine: 'YOLO/ONNX' } };
+        result = {
+          ...detectRes,
+          _meta: { modelUsed: detectRes.modelUsed || modelIdToUse, engine: 'YOLO/ONNX' },
+          screenWidth: cap.screenWidth,
+          screenHeight: cap.screenHeight,
+        };
         break;
       }
       case 'vision_detect': {
@@ -197,8 +209,18 @@ export function createToolExecutor(tools) {
         }
         const d = dets[idx];
         const bbox = d.bbox || [];
-        const cx = Math.round(bbox[0] + (bbox[2] || 0) / 2);
-        const cy = Math.round(bbox[1] + (bbox[3] || 0) / 2);
+        let cx = Math.round(bbox[0] + (bbox[2] || 0) / 2);
+        let cy = Math.round(bbox[1] + (bbox[3] || 0) / 2);
+        if (lastImageSize?.width > 0 && lastImageSize?.height > 0) {
+          try {
+            const nut = await guiScreenSize();
+            if (nut?.width > 0 && nut?.height > 0
+              && (nut.width !== lastImageSize.width || nut.height !== lastImageSize.height)) {
+              cx = Math.round(cx * (nut.width / lastImageSize.width));
+              cy = Math.round(cy * (nut.height / lastImageSize.height));
+            }
+          } catch (_) {}
+        }
         result = await guiMouseClick({ x: cx, y: cy });
         break;
       }

@@ -29,7 +29,7 @@ export const TOOL_MODULES = [
   {
     id: 'vision',
     label: '本地视觉检测',
-    desc: 'YOLO/ONNX 离线检测，龙虾等目标识别',
+    desc: 'YOLO/ONNX 离线检测，通用目标识别',
     component: 'VisionTools',
   },
 ];

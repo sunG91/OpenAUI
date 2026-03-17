@@ -89,6 +89,7 @@ backend/data/*
 !backend/data/vision-models/
 !backend/data/vision-models/README.md
 backend/data/vision-models/*.onnx
+backend/data/vision-models/pt-sources/
 
 # --- Heavy audio / ffmpeg runtimes (本地依赖，仓库不带二进制) ---
 backend/piper/
