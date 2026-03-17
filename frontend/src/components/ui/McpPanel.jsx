@@ -54,7 +54,6 @@ export function McpPanel({ className = '' }) {
   const [resultView, setResultView] = useState('mcp'); // 'mcp' | 'model'
   const [editingServerId, setEditingServerId] = useState('');
   const [configCollapsed, setConfigCollapsed] = useState(false);
-
   const buildDefaultArgsFromSchema = (schema) => {
     if (!schema || typeof schema !== 'object') return {};
     const props = schema.properties || {};

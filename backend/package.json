@@ -1,6 +1,6 @@
 {
   "name": "openaui-backend",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Open AUI 后端 WebSocket 服务",
   "license": "Apache-2.0",
   "main": "src/index.js",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",
+    "adm-zip": "^0.5.16",
     "cors": "^2.8.5",
     "edge-tts-node": "^1.5.7",
     "express": "^4.21.0",

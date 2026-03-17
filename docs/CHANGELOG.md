@@ -4,6 +4,15 @@
 >
 > 建议你每次更新本文件后，同步复制到 `frontend/public/docs/CHANGELOG.md`（确保应用内能看到最新内容）。
 
+## 0.1.6（2026-03-17）
+
+- 新增：**Skills 库** 详情页「SKILL.md」Tab，点击 skill 进入详情后可单独查看完整 SKILL.md 文档（Markdown 渲染）。
+- 优化：**Skills 库** 本地搜索支持文档正文（body），可按名称、描述、文档内容查找 skill。
+- 优化：**Skills 库 AI 自动抓取** 四轮关键词搜索（中文、英文、短中文、短英文）始终执行并累加结果，不再因首轮有结果而跳过后续轮次。
+- 优化：**Skills 库 AI 自动抓取** Round 2–4 增加兜底：LLM 不可用时使用内置映射（如 自媒体→media/content）与正则提取，确保英文/短中文/短英文搜索仍能执行。
+- 优化：**Skills 库 AI 自动抓取** 关键词去重，已搜索过的关键词不再重复请求，节省时间。
+- 修复：**ClawHub 导入** 使用 Playwright 渲染 SPA 页面以解析「Download zip」链接，解决 fetch 无法获取动态内容导致的「无法从页面解析出下载地址」问题；需执行 `npm run playwright:install` 安装 Chromium。
+
 ## 0.1.5（2026-03-16）
 
 - 新增：**llm_extract_from_content** 工具，由 AI 从原始页面文本中提取与用户目标相关的信息，适配任意网页结构；支持长文本分段处理（每段约 6000 字符）。

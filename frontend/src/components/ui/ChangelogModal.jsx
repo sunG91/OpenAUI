@@ -110,7 +110,8 @@ export function ChangelogModal({ open, onClose, title = '更新记录', src = '/
                 remarkPlugins={[remarkGfm]}
                 components={{
                   pre: ({ node, ...p }) => <pre className="my-1.5 whitespace-pre-wrap break-words" {...p} />,
-                  code: ({ node, inline, ...p }) => <code className={inline ? 'px-1' : ''} {...p} />,
+                  code: ({ node, inline, ...p }) => <code className={inline ? 'px-1 rounded bg-gray-100 font-mono text-[11px]' : 'block px-2 py-1 rounded bg-gray-100 font-mono text-[11px] my-1'} {...p} />,
+                  strong: ({ node, ...p }) => <strong className="font-semibold" {...p} />,
                   p: ({ node, ...p }) => <p className="my-1.5" {...p} />,
                   ul: ({ node, ...p }) => <ul className="my-2 list-inside list-disc space-y-1" {...p} />,
                   ol: ({ node, ...p }) => <ol className="my-2 list-inside list-decimal space-y-1" {...p} />,

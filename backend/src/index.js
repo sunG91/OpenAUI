@@ -15,6 +15,7 @@ const { mountTestModelRoutes } = require('./routes/testModel');
 const { mountVoiceRoutes } = require('./routes/voice');
 const { mountToolsRoutes } = require('./routes/tools');
 const { mountMcpRoutes } = require('./routes/mcp');
+const { router: skillsRouter } = require('./routes/skills');
 const { createConnectionHandler } = require('./ws/handler');
 
 const config = loadConfig();
@@ -32,6 +33,7 @@ mountTestModelRoutes(app);
 mountVoiceRoutes(app);
 mountToolsRoutes(app);
 mountMcpRoutes(app);
+app.use('/api/skills', skillsRouter);
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, clientTracking: true });
