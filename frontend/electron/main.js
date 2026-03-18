@@ -134,10 +134,11 @@ function stopBackend() {
 
 function createWindow(backendPort = '9527') {
   const appRoot = app.getAppPath();
-  const iconPath1 = path.join(appRoot, 'dist-app', 'images', 'icon', 'icon.ico');
-  const iconPath2 = path.join(appRoot, 'build', 'icon.ico');
-  const iconPath = fs.existsSync(iconPath1) ? iconPath1 : iconPath2;
-  const hasIcon = fs.existsSync(iconPath);
+  const iconPath1 = path.join(appRoot, 'dist-app', 'images', 'icon', 'icon256.ico');
+  const iconPath2 = path.join(appRoot, 'dist-app', 'images', 'icon', 'icon.ico');
+  const iconPath3 = path.join(appRoot, 'build', 'icon.ico');
+  const iconPath = [iconPath1, iconPath2, iconPath3].find((p) => fs.existsSync(p));
+  const hasIcon = !!iconPath;
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,

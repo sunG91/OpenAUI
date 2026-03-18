@@ -57,7 +57,7 @@ npm run electron:build  # 构建并生成 release/win-unpacked/Open AUI.exe
 
 ![打包运行截图 v0.1.7](./images/mdimg/参考图0.1.7.png)
 
-- **图标**：将 `icon.ico` 放入 `public/images/icon/`，打包时自动使用
+- **图标**：将 `icon256.ico`（至少 256×256）放入 `public/images/icon/`，打包时自动嵌入 exe
 - **AI 头像**：将 `ai.png` 放入 `public/images/头像/`，用于界面左侧头像
 
 > 说明：当前后端为回显模式，发送内容会原样返回，后续将接入 AI 模型。
