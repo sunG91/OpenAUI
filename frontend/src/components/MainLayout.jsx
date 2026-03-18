@@ -15,7 +15,7 @@ export function MainLayout() {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
   const [changelogOpen, setChangelogOpen] = useState(false);
-  const [quickMode, setQuickMode] = useState(false);
+  const [quickMode, setQuickMode] = useState(true);
   const [mcpMode, setMcpMode] = useState(false);
   const [suiMode, setSuiMode] = useState(false);
   const messagesEndRef = useRef(null);
@@ -334,10 +334,9 @@ export function MainLayout() {
               <div className="flex-1 w-full max-w-4xl overflow-y-auto px-4 py-4 bg-white">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center py-8">
-                    <p className="text-center text-[var(--input-placeholder)] text-sm mb-2">
+                    <p className="text-center text-[var(--input-placeholder)] text-sm mb-6">
                       {mode === 'chat' ? '开始对话吧～' : '切换到 AUI 模式，让 AI 帮你操作电脑'}
                     </p>
-                    <p className="text-center text-[var(--input-placeholder)] text-xs mb-6">支持快速指令 · 输入「/」选择技能</p>
                     <SuggestionChips
                       items={SUGGESTION_ITEMS}
                       onSelect={handleSuggestionSelect}
@@ -366,6 +365,7 @@ export function MainLayout() {
                   onSkillSelect={handleSkillSelect}
                   onPlusClick={() => setSidebarActive('skills')}
                   quickMode={quickMode}
+                  quickOnly
                   mcpMode={mcpMode}
                   suiMode={suiMode}
                   placeholder={voiceActive ? '正在监听，请说话...' : '发消息或输入「/」选择技能'}

@@ -92,6 +92,7 @@ export function ChatInputBar({
   onSkillSelect,
   onPlusClick,
   quickMode = false,
+  quickOnly = false,
   mcpMode = false,
   suiMode = false,
   placeholder = '发消息或输入「/」选择技能',
@@ -108,10 +109,12 @@ export function ChatInputBar({
   const morePopupRef = useRef(null);
   const [activeSkillId, setActiveSkillId] = useState(null);
 
-  // 只展示在技能页已开启的技能项，与技能栏开关对应
-  const skillsWithoutMore = skills.filter((s) => s.id !== 'more' && getSkillEnabled(s.id));
+  // quickOnly 时仅显示快速且不可切换；否则展示在技能页已开启的技能项
+  const skillsWithoutMore = quickOnly
+    ? skills.filter((s) => s.id === 'quick')
+    : skills.filter((s) => s.id !== 'more' && getSkillEnabled(s.id));
   const visibleSkills = skillsWithoutMore.slice(0, MAX_VISIBLE_SKILLS);
-  const moreSkills = skillsWithoutMore.slice(MAX_VISIBLE_SKILLS);
+  const moreSkills = quickOnly ? [] : skillsWithoutMore.slice(MAX_VISIBLE_SKILLS);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -215,10 +218,14 @@ export function ChatInputBar({
         </div>
       </div>
 
-      {/* 第二行：支持快速 + 加号 + 最多 3 个标签 + 更多 */}
+      {/* 第二行：加号 + 最多 3 个标签 + 更多（quickOnly 时仅显示快速且不可切换） */}
       <div className="px-3 pb-3 pt-0 flex items-center gap-1.5 flex-wrap">
-        <span className="text-[10px] text-[var(--input-placeholder)]">支持快速</span>
-        {showPlus && (
+        {quickOnly && (
+          <span className="text-[10px] text-[var(--input-placeholder)]" title="可修改源码扩展更多技能">
+            暂时只支持快速，或二开扩展
+          </span>
+        )}
+        {showPlus && !quickOnly && (
           <button
             type="button"
             onClick={() => onPlusClick?.()}
@@ -235,19 +242,17 @@ export function ChatInputBar({
             label={skill.label}
             tag={skill.tag}
             tagType={skill.tagType}
-            active={
-              skill.id === 'quick'
-                ? quickMode
-                : skill.id === 'mcp'
-                ? mcpMode
-                : skill.id === 'sui'
-                ? suiMode
-                : activeSkillId === skill.id
+            active={skill.id === 'quick' ? (quickOnly || quickMode) : skill.id === 'mcp' ? mcpMode : skill.id === 'sui' ? suiMode : activeSkillId === skill.id}
+            onClick={
+              quickOnly
+                ? undefined
+                : () => {
+                    setActiveSkillId((prev) => (prev === skill.id ? null : skill.id));
+                    onSkillSelect?.(skill.id);
+                  }
             }
-            onClick={() => {
-              setActiveSkillId((prev) => (prev === skill.id ? null : skill.id));
-              onSkillSelect?.(skill.id);
-            }}
+            disabled={quickOnly && skill.id !== 'quick'}
+            className={quickOnly ? 'cursor-default' : ''}
           />
         ))}
         {moreSkills.length > 0 && (

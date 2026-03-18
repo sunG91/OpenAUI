@@ -2,7 +2,7 @@
  * 技能/模块按钮 - 药丸形，图标+文字，可选副标签（Beta/免费）
  * 支持选中态，便于底部标签高亮
  */
-export function SkillButton({ icon, label, tag, tagType = 'beta', active = false, onClick, className = '' }) {
+export function SkillButton({ icon, label, tag, tagType = 'beta', active = false, onClick, disabled = false, className = '' }) {
   const tagClass = active
     ? 'text-white/90'
     : tagType === 'free'
@@ -12,7 +12,8 @@ export function SkillButton({ icon, label, tag, tagType = 'beta', active = false
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
       aria-pressed={active}
       className={`
         inline-flex items-center gap-1.5 px-2.5 py-1.5
