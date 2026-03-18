@@ -1,5 +1,5 @@
 {
-  "name": "openaui-frontend",
+  "name": "open-aui",
   "version": "0.1.7",
   "private": true,
   "description": "Open AUI Electron 桌面应用",
@@ -10,10 +10,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "kill-ports": "node scripts/kill-ports.js",
+    "_install-backend": "cd ../backend && npm install --omit=dev && cd ../frontend",
     "gen:icon": "node scripts/generate-icon.js",
     "electron:dev": "node scripts/kill-ports.js && npm run gen:icon && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && npm run gen:icon && electron-builder",
-    "pack": "vite build && npm run gen:icon && electron-builder --dir"
+    "electron:build": "vite build && node scripts/prepare-package.js && npm run _install-backend && electron-builder",
+    "electron:build:portable": "npm run electron:build -- --win portable",
+    "pack": "vite build && node scripts/prepare-package.js && npm run _install-backend && electron-builder --dir"
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",
@@ -44,10 +46,26 @@
   "build": {
     "productName": "Open AUI",
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     },
+    "files": ["dist-app/**", "electron/**", "build/**", "package.json"],
+    "extraResources": [
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "build/node",
+        "to": "node",
+        "filter": ["**/*"]
+      }
+    ],
     "win": {
-      "icon": "build/icon.ico"
+      "icon": "dist-app/images/icon/icon.ico",
+      "target": ["dir"],
+      "signAndEditExecutable": false
     }
   }
 }

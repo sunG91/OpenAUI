@@ -6,6 +6,7 @@
 
 ## 0.1.7（2026-03-18）
 
+- 新增：**Electron 完整打包** 前后端合并为单一可执行程序，`npm run electron:build` 生成 `release/win-unpacked/Open AUI.exe`，内置 Node 与后端，无需系统安装 Node.js。
 - 新增：**GUI 节点执行** 配置 `guiExecutor`（`backend` | `node`），Electron 下可将 GUI 工具（nut/robotjs）在主进程执行，减少跨进程开销；GUI 工具「查看」中增加执行位置切换（仅 Electron 显示）。
 - 新增：**A2UI 画布** 轻量画布面板，支持 `surfaceUpdate`、`beginRendering`、`deleteSurface` 协议；Agent 或工具可调用 `POST /api/canvas/push` 推送 A2UI 消息并实时渲染。
 - 新增：**React Flow Demo**（临时）节点流可视化：可拖动节点、拖拽连线、科技感样式；自定义 FlowEdge 含青色线条、边标签（待处理、处理中→输出等）、沿路径流动光点；自定义 TechNode 含 Handle 连接点。
@@ -13,6 +14,7 @@
 - 新增：**gui_wait_element** 工具，轮询 winui_locate 直到成功或超时；Plan 提示词精简为上述 5 个工具。
 - 优化：**本地 OCR** 命名（原「Tesseract.js 本地」改为「本地 OCR」）。
 - 修复：**WinUI 定位** 点击豆包等应用图标无效：UIA 物理坐标转 RobotJS 逻辑坐标（DPI 缩放）；PowerShell 中文乱码通过 UTF-8 临时文件传递 name 与输出。
+- 优化：**Electron 打包** 图标与 AI 头像支持自定义，分别放置于 `public/images/icon/icon.ico`、`public/images/头像/ai.png`；修复打包后 `file://` 协议下头像路径解析问题。
 
 ## 0.1.6（2026-03-17）
 

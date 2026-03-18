@@ -18,7 +18,10 @@ let mainWindow = null;
 // 开发模式检测
 const isDev = !app.isPackaged;
 
-const backendPath = path.join(__dirname, '../../backend');
+// 打包后：backend 和 node 在 resources 目录；开发时：相对于 main.js
+const backendPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'backend')
+  : path.join(__dirname, '../../backend');
 const backendDataDir = path.join(backendPath, 'data');
 const backendPortFile = path.join(backendDataDir, 'port.txt');
 
@@ -85,10 +88,16 @@ function readBackendPort(callback) {
   }, interval);
 }
 
-// 启动后端（必须用系统 Node 运行）
+// 启动后端（打包后用捆绑的 Node，开发时用系统 Node）
 function startBackend() {
   const scriptPath = path.join(backendPath, 'src/index.js');
-  const nodeCommand = process.platform === 'win32' ? 'node.exe' : 'node';
+  let nodeCommand;
+  if (app.isPackaged && process.platform === 'win32') {
+    const bundledNode = path.join(process.resourcesPath, 'node', 'node.exe');
+    nodeCommand = fs.existsSync(bundledNode) ? bundledNode : 'node.exe';
+  } else {
+    nodeCommand = process.platform === 'win32' ? 'node.exe' : 'node';
+  }
 
   // 避免读取到上一次运行遗留的端口文件，导致前端拿到错误端口（例如 9529）
   try {
@@ -124,13 +133,17 @@ function stopBackend() {
 }
 
 function createWindow(backendPort = '9527') {
-  const devIconPath = path.join(__dirname, '../build/icon.ico');
+  const appRoot = app.getAppPath();
+  const iconPath1 = path.join(appRoot, 'dist-app', 'images', 'icon', 'icon.ico');
+  const iconPath2 = path.join(appRoot, 'build', 'icon.ico');
+  const iconPath = fs.existsSync(iconPath1) ? iconPath1 : iconPath2;
+  const hasIcon = fs.existsSync(iconPath);
   mainWindow = new BrowserWindow({
     width: 900,
     height: 700,
     minWidth: 600,
     minHeight: 500,
-    ...(isDev && fs.existsSync(devIconPath) ? { icon: devIconPath } : {}),
+    ...(hasIcon ? { icon: iconPath } : {}),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -145,8 +158,9 @@ function createWindow(backendPort = '9527') {
     mainWindow.loadURL(`http://localhost:5173?backendPort=${backendPort}`);
     // 开发环境也不默认打开 DevTools（避免启动就弹 F12 面板）
   } else {
-    // 生产环境同样注入 backendPort，避免后端端口回退到 9528/9529 时前端仍固定连 9527
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+    // 生产环境：使用 app 根目录的 dist，确保打包后路径正确
+    const distPath = path.join(appRoot, 'dist-app', 'index.html');
+    mainWindow.loadFile(distPath, {
       query: { backendPort: String(backendPort || '9527') },
     });
   }

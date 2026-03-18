@@ -21,12 +21,15 @@ export function AIAvatar({ showWaveform = false, compact = false }) {
         `}
       >
         <img
-          src="/images/头像/ai.png"
+          src={`${import.meta.env.BASE_URL}images/头像/ai.png`}
           alt="AI 头像"
           className="w-full h-full rounded-full object-cover select-none"
           draggable={false}
           loading="lazy"
           decoding="async"
+          onError={(e) => {
+            e.target.src = `${import.meta.env.BASE_URL}images/icon/icon.ico`;
+          }}
         />
       </div>
       {showWaveform && (

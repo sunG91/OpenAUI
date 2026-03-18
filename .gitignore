@@ -50,6 +50,8 @@ frontend/.parcel-cache/
 frontend/.next/
 frontend/out/
 frontend/dist/
+frontend/dist-app/
+frontend/release/
 frontend/build/
 frontend/coverage/
 frontend/.eslintcache

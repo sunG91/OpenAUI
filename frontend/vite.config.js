@@ -12,7 +12,7 @@ export default defineConfig({
   },
   base: './',
   build: {
-    outDir: 'dist',
+    outDir: 'dist-app',
   },
   server: {
     port: 5173,
