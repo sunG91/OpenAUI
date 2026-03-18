@@ -3,7 +3,7 @@
  */
 import { API_BASE, wrapNetworkError } from './base';
 
-const VALID_SECTIONS = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools'];
+const VALID_SECTIONS = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools', 'aui'];
 
 export async function getConfig() {
   try {

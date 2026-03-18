@@ -53,6 +53,9 @@ const SECTION_DEFAULTS = {
     guiProvider: 'nut', // 'nut' | 'robotjs'
     guiExecutor: 'backend', // 'backend' | 'node' — 节点执行时 GUI 在 Electron 主进程运行，便于未来远程后端
   },
+  aui: {
+    architectureId: 'tianshu', // 当前选中的 AUI 架构 id
+  },
 };
 
 const LEGACY_FILES = {

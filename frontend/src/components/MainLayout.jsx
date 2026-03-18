@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
-import { AIAvatar, MessageBubble, ChatInputBar, SuggestionChips, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, ChangelogModal } from './ui';
+import { AIAvatar, MessageBubble, ChatInputBar, SuggestionChips, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, AuiPanel, ChangelogModal } from './ui';
 import { getVoiceSettings, sttFromAudioBlob, ttsFromText } from '../api/client';
 import { stripEmojisForSpeech } from '../utils/speechText';
 
@@ -317,6 +317,8 @@ export function MainLayout() {
                 </span>
               </div>
             </div>
+          ) : sidebarActive === 'aui' ? (
+            <AuiPanel />
           ) : sidebarActive === 'settings' ? (
             <SettingsPanel />
           ) : sidebarActive === 'tools' ? (

@@ -15,3 +15,4 @@ export { ToolsPanel } from './ToolsPanel';
 export { VoicePanel } from './VoicePanel';
 export { McpPanel } from './McpPanel';
 export { SkillsLibraryPanel } from './SkillsLibraryPanel';
+export { AuiPanel } from './AuiPanel';
