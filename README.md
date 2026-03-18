@@ -1,5 +1,13 @@
 # Open AUI
 
+[![GitHub 星标](https://img.shields.io/github/stars/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 分支](https://img.shields.io/github/forks/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 观察者](https://img.shields.io/github/watchers/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 仓库大小](https://img.shields.io/github/repo-size/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 语言数量](https://img.shields.io/github/languages/count/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 顶级语言](https://img.shields.io/github/languages/top/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+[![GitHub 最新提交](https://img.shields.io/github/last-commit/sunG91/OpenAUI?style=flat-square)](https://github.com/sunG91/OpenAUI)
+
 > 让 AI 真正「动手」操作电脑的开源智能助手框架
 
 ## 简介
