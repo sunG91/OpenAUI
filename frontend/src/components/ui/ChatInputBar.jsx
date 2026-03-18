@@ -215,8 +215,9 @@ export function ChatInputBar({
         </div>
       </div>
 
-      {/* 第二行：加号 + 最多 3 个标签 + 更多 */}
+      {/* 第二行：支持快速 + 加号 + 最多 3 个标签 + 更多 */}
       <div className="px-3 pb-3 pt-0 flex items-center gap-1.5 flex-wrap">
+        <span className="text-[10px] text-[var(--input-placeholder)]">支持快速</span>
         {showPlus && (
           <button
             type="button"

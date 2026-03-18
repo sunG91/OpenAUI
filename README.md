@@ -55,6 +55,8 @@ npm run pack            # 构建并生成 release 目录下的安装包
 
 > 说明：当前后端为回显模式，发送内容会原样返回，后续将接入 AI 模型。
 >
+> **开发状态**：作者目前主要精力在兼容 AI 工具（GUI、浏览器、MCP 等），聊天模块、历史记录等暂未完整开发。
+>
 > **常见问题**：
 > - 前端报错 `@rollup/rollup-win32-x64-msvc`：在 frontend 目录执行 `npm install @rollup/rollup-win32-x64-msvc`
 > - Electron 报错 EBUSY：**完全退出 Cursor/VS Code**，在资源管理器中双击 **`安装依赖.bat`**（勿在 Cursor 终端运行）。若仍失败，可将项目移动到 `C:\openAUI` 等纯英文路径再试

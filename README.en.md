@@ -66,6 +66,7 @@ npm run pack        # build and generate installer under release/
 
 > Note:
 > - Currently the backend works in echo mode: whatever you send will be returned as‑is. AI model integration will be added later.
+> - **Development status**: The author is currently focused on AI tool compatibility (GUI, browser, MCP, etc.). The chat module and history/records are not fully developed yet.
 > - **Common issues**:
 >   - Frontend error `@rollup/rollup-win32-x64-msvc`: run `npm install @rollup/rollup-win32-x64-msvc` in the `frontend` directory.
 >   - Electron `EBUSY` error: **fully quit Cursor / VS Code**, then double‑click **`安装依赖.bat`** in File Explorer (do not run it inside the Cursor terminal). If it still fails, try moving the project to a pure ASCII path such as `C:\openAUI` and retry.

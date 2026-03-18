@@ -302,7 +302,22 @@ export function MainLayout() {
         </header>
 
         <main className="flex-1 flex flex-col items-center overflow-hidden bg-white">
-          {sidebarActive === 'settings' ? (
+          {sidebarActive === 'history' ? (
+            <div className="flex-1 w-full flex flex-col items-center justify-center px-4">
+              <div className="max-w-sm w-full rounded-2xl border-2 border-dashed border-[var(--input-bar-border)] bg-[#fafafa] p-10 text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 text-amber-600 mb-4">
+                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-medium text-[var(--skill-btn-text)] mb-1">历史记录</h3>
+                <p className="text-sm text-[var(--input-placeholder)] mb-2">对话历史与操作记录</p>
+                <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                  暂未开发
+                </span>
+              </div>
+            </div>
+          ) : sidebarActive === 'settings' ? (
             <SettingsPanel />
           ) : sidebarActive === 'tools' ? (
             <ToolsPanel />
@@ -319,9 +334,10 @@ export function MainLayout() {
               <div className="flex-1 w-full max-w-4xl overflow-y-auto px-4 py-4 bg-white">
                 {messages.length === 0 ? (
                   <div className="flex flex-col items-center py-8">
-                    <p className="text-center text-[var(--input-placeholder)] text-sm mb-6">
+                    <p className="text-center text-[var(--input-placeholder)] text-sm mb-2">
                       {mode === 'chat' ? '开始对话吧～' : '切换到 AUI 模式，让 AI 帮你操作电脑'}
                     </p>
+                    <p className="text-center text-[var(--input-placeholder)] text-xs mb-6">支持快速指令 · 输入「/」选择技能</p>
                     <SuggestionChips
                       items={SUGGESTION_ITEMS}
                       onSelect={handleSuggestionSelect}
