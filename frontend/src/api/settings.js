@@ -29,6 +29,50 @@ export async function saveApiKey(vendorId, apiKey) {
   }
 }
 
+/** 百度智能云 OCR：获取脱敏的 AK/SK */
+export async function getBaiduOcrKeys() {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/baidu-ocr`);
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    return { configured: data.configured, masked: data.masked || {} };
+  } catch (e) {
+    throw wrapNetworkError(e);
+  }
+}
+
+/** 百度智能云 OCR：保存 AK/SK */
+export async function saveBaiduOcrKeys(apiKey, secretKey) {
+  try {
+    const res = await fetch(`${API_BASE}/api/settings/baidu-ocr`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: apiKey || '', secretKey: secretKey || '' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data.masked || {};
+  } catch (e) {
+    throw wrapNetworkError(e);
+  }
+}
+
+/** 百度 OCR 测试：传入图片 url 或 base64 */
+export async function testBaiduOcr({ url, image }) {
+  try {
+    const res = await fetch(`${API_BASE}/api/ocr/test`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url || '', image: image || '' })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+    return data;
+  } catch (e) {
+    throw wrapNetworkError(e);
+  }
+}
+
 export async function getVoiceSettings() {
   try {
     const res = await fetch(`${API_BASE}/api/settings/voice`);

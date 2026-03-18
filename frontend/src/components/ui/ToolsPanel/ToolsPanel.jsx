@@ -6,15 +6,19 @@ import { TOOL_MODULES } from './toolModules';
 import { ConsoleTools } from './ConsoleTools';
 import { SystemTools } from './SystemTools';
 import { GuiTools } from './GuiTools';
+import { WinuiTools } from './WinuiTools';
 import { BrowserTools } from './BrowserTools';
 import { VisionTools } from './VisionTools';
+import { CanvasTools } from './CanvasTools';
 
 const TOOL_COMPONENTS = {
   ConsoleTools,
   SystemTools,
   GuiTools,
+  WinuiTools,
   BrowserTools,
   VisionTools,
+  CanvasTools,
 };
 
 export function ToolsPanel({ className = '' }) {

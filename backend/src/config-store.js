@@ -49,6 +49,10 @@ const SECTION_DEFAULTS = {
   model: {
     quick: { vendorId: '', modelId: '' },
   },
+  tools: {
+    guiProvider: 'nut', // 'nut' | 'robotjs'
+    guiExecutor: 'backend', // 'backend' | 'node' — 节点执行时 GUI 在 Electron 主进程运行，便于未来远程后端
+  },
 };
 
 const LEGACY_FILES = {

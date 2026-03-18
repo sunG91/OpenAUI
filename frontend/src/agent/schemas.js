@@ -11,6 +11,7 @@ export const TOOL_SCHEMA = `
 - gui_mouse_click: 鼠标点击。参数: button(left/right), x(可选), y(可选)
 - gui_keyboard_type: 键盘输入（别名 gui_keyboard_input）。参数: text
 - gui_screen_capture: 仅截屏。参数: region(可选 "x,y,w,h")
+- winui_locate: 系统级 UI 定位（仅 Windows，坐标永不偏差）。参数: name(元素名称如"确定") 或 automationId。返回 x,y 供 gui_mouse_click 使用。
 
 【控制台】
 - console_shell: 仅执行系统命令（dir、echo 等），不能从网页提取数据
@@ -45,14 +46,14 @@ export const TOOL_SCHEMA = `
 - llm_extract_from_content: 由 AI 从原始页面文本中提取与用户目标相关的信息。无参数，content 和 userGoal 由系统自动传入。适用于任意网页结构，内容过长时会分段处理。
 
 输出格式（仅 JSON，无 markdown）：
-{"tool":"工具名","x":0,"y":0,"button":"left","text":"","region":"","command":"","cwd":"","path":"","content":"","pid":0,"url":"","selector":"","script":"","modelId":"","image":"","index":0,"timeout":3000}
+{"tool":"工具名","x":0,"y":0,"button":"left","text":"","region":"","name":"","automationId":"","command":"","cwd":"","path":"","content":"","pid":0,"url":"","selector":"","script":"","modelId":"","image":"","index":0,"timeout":3000}
 `;
 
 export const PLAN_SCHEMA = `
 请将用户的自然语言目标拆分为可执行的步骤计划（Plan）。
 
 tool 必须从以下列表精确选择（不要自创名称）：
-gui_mouse_move, gui_mouse_click, gui_keyboard_type, gui_screen_capture, console_shell,
+gui_mouse_move, gui_mouse_click, gui_keyboard_type, gui_screen_capture, winui_locate, console_shell,
 fs_list, fs_read_text, fs_write_text, process_list, process_kill,
 browser_navigate, browser_click, browser_type, browser_screenshot, browser_dom_interactive, browser_scroll, browser_execute, browser_back, browser_wait,
 vision_screen_detect, vision_detect, vision_locate, gui_click_detection, llm_verify_content, llm_extract_essence, llm_extract_from_content
@@ -77,6 +78,7 @@ vision_screen_detect, vision_detect, vision_locate, gui_click_detection, llm_ver
 - 若用户只需结果：browser_execute 取全文 → llm_extract_from_content 提取关键信息 → 返回，不要用 fs_write_text。
 - 若需保存为文件：用 fs_write_text，path 以 .md 结尾。
 - 若页面出现验证码/人机校验（如「确认您是真人」「最后一步」「请解决以下难题」）：用 gui_screen_capture 截屏 → vision_locate(image, "确认您是真人的复选框", vendorId, modelId) 获取坐标 → gui_mouse_click(x, y) 模拟点击。
+- 若为原生 Windows 对话框（如「确定」「取消」「是」按钮）：优先用 winui_locate(name: "确定") 获取坐标 → gui_mouse_click(x, y)，坐标由系统提供永不偏差。
 `;
 
 export const SUPERVISOR_SCHEMA = `

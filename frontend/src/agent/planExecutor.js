@@ -287,9 +287,10 @@ export async function executePlan(plan, options) {
     delete params.tool;
     delete params.runIf;
 
-    // 若上一步是 vision_locate 且成功，gui_mouse_click 可继承其返回的 x,y
+    // 若上一步是 vision_locate 或 winui_locate 且成功，gui_mouse_click 可继承其返回的 x,y
     const prev = results[results.length - 1];
-    if (tool === 'gui_mouse_click' && prev?.tool === 'vision_locate' && prev?.success && prev?.result?.x != null && prev?.result?.y != null) {
+    const prevLocate = prev?.tool === 'vision_locate' || prev?.tool === 'winui_locate';
+    if (tool === 'gui_mouse_click' && prevLocate && prev?.success && prev?.result?.x != null && prev?.result?.y != null) {
       if (params.x == null && params.y == null) {
         params = { ...params, x: prev.result.x, y: prev.result.y };
       }

@@ -4,6 +4,16 @@
 >
 > 建议你每次更新本文件后，同步复制到 `frontend/public/docs/CHANGELOG.md`（确保应用内能看到最新内容）。
 
+## 0.1.7（2026-03-18）
+
+- 新增：**GUI 节点执行** 配置 `guiExecutor`（`backend` | `node`），Electron 下可将 GUI 工具（nut/robotjs）在主进程执行，减少跨进程开销；GUI 工具「查看」中增加执行位置切换（仅 Electron 显示）。
+- 新增：**A2UI 画布** 轻量画布面板，支持 `surfaceUpdate`、`beginRendering`、`deleteSurface` 协议；Agent 或工具可调用 `POST /api/canvas/push` 推送 A2UI 消息并实时渲染。
+- 新增：**React Flow Demo**（临时）节点流可视化：可拖动节点、拖拽连线、科技感样式；自定义 FlowEdge 含青色线条、边标签（待处理、处理中→输出等）、沿路径流动光点；自定义 TechNode 含 Handle 连接点。
+- 新增：**WinuiTools**「精准定位」「系统定位测试」两个 Tab，流程为 Plan 模型 → gui_screen_capture、winui_locate、gui_wait_element、gui_keyboard_type、gui_mouse_click；仅允许选择带 tools 标签的模型。
+- 新增：**gui_wait_element** 工具，轮询 winui_locate 直到成功或超时；Plan 提示词精简为上述 5 个工具。
+- 优化：**本地 OCR** 命名（原「Tesseract.js 本地」改为「本地 OCR」）。
+- 修复：**WinUI 定位** 点击豆包等应用图标无效：UIA 物理坐标转 RobotJS 逻辑坐标（DPI 缩放）；PowerShell 中文乱码通过 UTF-8 临时文件传递 name 与输出。
+
 ## 0.1.6（2026-03-17）
 
 - 新增：**GUI 模拟测试** 视觉识别提示词预设（`guiVisionPrompts.js` 技能模块），支持「严格按刻度」「通用描述」「自定义」三种预设，可在此绑定/扩展。

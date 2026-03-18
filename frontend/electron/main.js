@@ -2,7 +2,7 @@
  * Open AUI - Electron 主进程
  * 启动时同时启动后端 WebSocket 服务
  */
-const { app, BrowserWindow, Menu, session, desktopCapturer } = require('electron');
+const { app, BrowserWindow, Menu, session, desktopCapturer, ipcMain } = require('electron');
 // 开发时关闭控制台安全警告（打包后不会出现该警告）
 if (!app.isPackaged) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1';
@@ -10,6 +10,7 @@ if (!app.isPackaged) {
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const guiNode = require('./gui-node');
 
 let backendProcess = null;
 let mainWindow = null;
@@ -177,6 +178,14 @@ app.whenReady().then(() => {
   } catch (e) {
     console.warn('[Open AUI] setDisplayMediaRequestHandler 不可用，截屏将依赖 preload 后备:', e?.message);
   }
+  // GUI 节点执行：IPC 处理（当 tools.guiExecutor === 'node' 时由主进程执行 GUI）
+  ipcMain.handle('gui:setProvider', (_, p) => guiNode.setProvider(p));
+  ipcMain.handle('gui:mouseMove', (_, x, y) => guiNode.mouseMove(x, y));
+  ipcMain.handle('gui:mouseClick', (_, opts) => guiNode.mouseClick(opts));
+  ipcMain.handle('gui:keyboardType', (_, text) => guiNode.keyboardType(text));
+  ipcMain.handle('gui:screenCapture', () => guiNode.screenCapture());
+  ipcMain.handle('gui:screenSize', () => guiNode.screenSize());
+
   readBackendPort((_err, port) => {
     createWindow(port);
   });

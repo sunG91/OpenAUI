@@ -19,6 +19,7 @@ const { router: skillsRouter } = require('./routes/skills');
 const { createConnectionHandler } = require('./ws/handler');
 
 const config = loadConfig();
+const { initTokenOnStartup } = require('./services/baidu-ocr');
 const { port, host } = config.server;
 const { requireKey, allowedKeys } = config.auth;
 
@@ -34,6 +35,8 @@ mountVoiceRoutes(app);
 mountToolsRoutes(app);
 mountMcpRoutes(app);
 app.use('/api/skills', skillsRouter);
+const { mountCanvasRoutes } = require('./routes/canvas');
+mountCanvasRoutes(app);
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, clientTracking: true });
@@ -67,6 +70,7 @@ function tryListen() {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(path.join(dataDir, 'port.txt'), String(p), 'utf8');
     console.log(`[Open AUI] 服务已启动: http://${host}:${p}  (HTTP API + WebSocket)`);
+    initTokenOnStartup().catch(() => {});
     console.log(`[Open AUI] 密钥验证: ${requireKey ? '已启用' : '已关闭'}`);
   });
 }

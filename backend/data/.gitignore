@@ -1,4 +1,6 @@
 # 本地存储的 API Key，勿提交
 apikeys.json
+# 百度 OCR token 缓存
+baidu-ocr-token.json
 # 运行时写入的后端端口（9527 被占用时为 9528/9529）
 port.txt

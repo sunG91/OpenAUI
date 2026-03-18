@@ -1,6 +1,6 @@
 {
   "name": "openaui-backend",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Open AUI 后端 WebSocket 服务",
   "license": "Apache-2.0",
   "main": "src/index.js",
@@ -25,6 +25,7 @@
     "onnxruntime-node": "^1.24.3",
     "openai": "^4.73.0",
     "playwright": "^1.49.0",
+    "robotjs": "^0.7.0",
     "screenshot-desktop": "^1.15.3",
     "sharp": "^0.33.5",
     "ws": "^8.18.0",

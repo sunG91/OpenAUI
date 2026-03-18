@@ -55,9 +55,39 @@ function getMaskedKeys() {
   return out;
 }
 
+/** 百度 OCR：存储 key 为 baidu_ocr_ak / baidu_ocr_sk */
+const BAIDU_OCR_AK = 'baidu_ocr_ak';
+const BAIDU_OCR_SK = 'baidu_ocr_sk';
+
+function getBaiduOcrCredentials() {
+  const raw = readApiKeys();
+  const ak = (raw[BAIDU_OCR_AK] || '').trim();
+  const sk = (raw[BAIDU_OCR_SK] || '').trim();
+  return ak && sk ? { ak, sk } : null;
+}
+
+function getBaiduOcrMasked() {
+  const raw = readApiKeys();
+  return {
+    ak: maskKey(raw[BAIDU_OCR_AK]),
+    sk: maskKey(raw[BAIDU_OCR_SK]),
+  };
+}
+
+function writeBaiduOcrKeys(ak, sk) {
+  const updates = {
+    [BAIDU_OCR_AK]: typeof ak === 'string' ? ak.trim() : '',
+    [BAIDU_OCR_SK]: typeof sk === 'string' ? sk.trim() : '',
+  };
+  return writeApiKeys(updates);
+}
+
 module.exports = {
   readApiKeys,
   writeApiKeys,
   getMaskedKeys,
-  maskKey
+  maskKey,
+  getBaiduOcrCredentials,
+  getBaiduOcrMasked,
+  writeBaiduOcrKeys,
 };

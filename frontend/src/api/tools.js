@@ -2,8 +2,33 @@
  * 系统工具 API：
  * - 控制台 / Shell
  * - 结构化系统操作（文件 / 进程）
+ * - GUI：支持 backend（后端执行）或 node（Electron 主进程执行，参考 OpenClaw 节点）
  */
 import { API_BASE } from './base';
+import { getConfigSection } from './config';
+
+let _guiNodeCache = { ts: 0, use: false };
+const CACHE_TTL = 30_000;
+
+async function shouldUseGuiNode() {
+  if (typeof window === 'undefined' || !window.electronAPI?.guiNode) return false;
+  if (Date.now() - _guiNodeCache.ts < CACHE_TTL) return _guiNodeCache.use;
+  try {
+    const tools = await getConfigSection('tools');
+    const use = (tools?.guiExecutor || 'backend').toLowerCase() === 'node';
+    _guiNodeCache = { ts: Date.now(), use };
+    if (use) window.electronAPI.guiNode.setProvider(tools?.guiProvider || 'nut');
+    return use;
+  } catch {
+    _guiNodeCache = { ts: Date.now(), use: false };
+    return false;
+  }
+}
+
+/** 刷新 GUI 执行器缓存（切换 backend/node 后调用） */
+export function refreshGuiExecutorCache() {
+  _guiNodeCache = { ts: 0, use: false };
+}
 
 /** 安全解析 JSON 响应，避免 HTML 404 等导致 "Unexpected token '<'" */
 async function parseJsonResponse(res) {
@@ -95,10 +120,11 @@ export async function systemProcessKill(pid) {
   return parseJsonResponse(res);
 }
 
-// ------- GUI 模拟（nut.js）-------
+// ------- GUI 模拟（nut.js / RobotJS，支持 backend 或 node 执行）-------
 
 /** 鼠标移动到 (x, y) */
 export async function guiMouseMove(x, y) {
+  if (await shouldUseGuiNode()) return window.electronAPI.guiNode.mouseMove(x, y);
   const res = await fetch(`${API_BASE}/api/tools/gui/mouse/move`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -109,6 +135,7 @@ export async function guiMouseMove(x, y) {
 
 /** 鼠标点击（button: left|right，可选 x,y 先移动再点） */
 export async function guiMouseClick(options = {}) {
+  if (await shouldUseGuiNode()) return window.electronAPI.guiNode.mouseClick(options);
   const res = await fetch(`${API_BASE}/api/tools/gui/mouse/click`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -119,6 +146,7 @@ export async function guiMouseClick(options = {}) {
 
 /** 键盘输入文本 */
 export async function guiKeyboardType(text) {
+  if (await shouldUseGuiNode()) return window.electronAPI.guiNode.keyboardType(text);
   const res = await fetch(`${API_BASE}/api/tools/gui/keyboard/type`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -127,8 +155,9 @@ export async function guiKeyboardType(text) {
   return parseJsonResponse(res);
 }
 
-/** 截屏（region 可选 "x,y,w,h"） */
+/** 截屏（region 可选 "x,y,w,h"，node 模式暂忽略 region） */
 export async function guiScreenCapture(region) {
+  if (await shouldUseGuiNode()) return window.electronAPI.guiNode.screenCapture();
   const url = region ? `${API_BASE}/api/tools/gui/screen/capture?region=${encodeURIComponent(region)}` : `${API_BASE}/api/tools/gui/screen/capture`;
   const res = await fetch(url);
   return parseJsonResponse(res);
@@ -136,6 +165,7 @@ export async function guiScreenCapture(region) {
 
 /** nut.js 获取的屏幕宽高（鼠标移动使用的坐标系，可能与截屏 PNG 尺寸不同） */
 export async function guiScreenSize() {
+  if (await shouldUseGuiNode()) return window.electronAPI.guiNode.screenSize();
   const res = await fetch(`${API_BASE}/api/tools/gui/screen/size`);
   return parseJsonResponse(res);
 }
@@ -277,6 +307,17 @@ export async function browserIdentify(payload) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  });
+  return parseJsonResponse(res);
+}
+
+// ------- Windows 系统定位（UIA，坐标永不偏差）-------
+/** 系统级 UI 定位：按名称或 AutomationId 查找元素，返回中心坐标（仅 Windows） */
+export async function winuiLocate(payload) {
+  const res = await fetch(`${API_BASE}/api/tools/winui/locate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload || {}),
   });
   return parseJsonResponse(res);
 }

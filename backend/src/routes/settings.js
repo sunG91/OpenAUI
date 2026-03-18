@@ -1,7 +1,7 @@
 /**
  * 设置相关 API：统一 config + API Key 等敏感数据
  */
-const { getMaskedKeys, writeApiKeys } = require('../apikeys-store');
+const { getMaskedKeys, writeApiKeys, getBaiduOcrMasked, writeBaiduOcrKeys } = require('../apikeys-store');
 const { readVoiceSettings, writeVoiceSettings } = require('../voice-settings-store');
 const { readSkillSettings, writeSkillSettings } = require('../skill-settings-store');
 const { readMcpSettings, writeMcpSettings } = require('../mcp-settings-store');
@@ -9,6 +9,7 @@ const { getMcpHttpCredentialsSummary, writeMcpHttpCredential } = require('../mcp
 const { readSkillsLibraryConfig, writeSkillsLibraryConfig } = require('../skills-library-store');
 const { readConfig, readSection, writeSection } = require('../config-store');
 const { getFfmpegVersion } = require('../ffmpeg/ffmpeg');
+const { generalBasic, clearCachedToken } = require('../services/baidu-ocr');
 
 function mountSettingsRoutes(app) {
   // 统一 config API：获取/更新全部或指定 section（mcp、skill、skillsLibrary、voice、model）
@@ -24,7 +25,7 @@ function mountSettingsRoutes(app) {
   app.get('/api/config/:section', (req, res) => {
     try {
       const { section } = req.params;
-      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model'];
+      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools'];
       if (!valid.includes(section)) {
         return res.status(400).json({ success: false, error: `无效 section: ${section}` });
       }
@@ -41,7 +42,7 @@ function mountSettingsRoutes(app) {
       if (!section || typeof section !== 'string') {
         return res.status(400).json({ success: false, error: '缺少 section' });
       }
-      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model'];
+      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools'];
       if (!valid.includes(section)) {
         return res.status(400).json({ success: false, error: `无效 section: ${section}` });
       }
@@ -71,6 +72,43 @@ function mountSettingsRoutes(app) {
       writeApiKeys({ [vendorId]: value });
       const keys = getMaskedKeys();
       return res.json({ success: true, keys });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // 百度智能云 OCR：API Key + Secret Key
+  app.get('/api/settings/baidu-ocr', (req, res) => {
+    try {
+      const masked = getBaiduOcrMasked();
+      const configured = !!(masked.ak && masked.sk);
+      return res.json({ configured, masked });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post('/api/settings/baidu-ocr', (req, res) => {
+    try {
+      const { apiKey, secretKey } = req.body || {};
+      writeBaiduOcrKeys(apiKey, secretKey);
+      clearCachedToken(); // 保存新密钥后清除 token，下次自动重新获取
+      const masked = getBaiduOcrMasked();
+      return res.json({ success: true, masked });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e.message });
+    }
+  });
+
+  // 百度 OCR 测试：传入图片 url 或 base64
+  app.post('/api/ocr/test', async (req, res) => {
+    try {
+      const { url, image } = req.body || {};
+      if (!url && !image) {
+        return res.status(400).json({ success: false, error: '请提供 url 或 image（base64）' });
+      }
+      const result = await generalBasic({ url, image });
+      return res.json({ success: true, data: result });
     } catch (e) {
       return res.status(500).json({ success: false, error: e.message });
     }

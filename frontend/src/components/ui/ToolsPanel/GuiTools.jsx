@@ -13,6 +13,7 @@ import {
   visionLocateVerify,
   visionClickVerify,
 } from '../../../api/tools';
+import { getConfigSection, updateConfigSection } from '../../../api/config';
 import { testModel, testModelStream } from '../../../api/modelTest';
 import { getSkillSettings } from '../../../api/settings';
 import { MODEL_VENDORS, VENDOR_MODELS, VISION_TAGS } from '../../../data/modelVendors';
@@ -131,12 +132,107 @@ export function GuiTools() {
 }
 
 function GuiToolsView() {
+  const [guiProvider, setGuiProvider] = useState('nut');
+  const [guiExecutor, setGuiExecutor] = useState('backend');
+  const [saving, setSaving] = useState(false);
+  const isElectron = typeof window !== 'undefined' && window.electronAPI?.guiNode;
+
+  useEffect(() => {
+    getConfigSection('tools').then((t) => {
+      setGuiProvider(t?.guiProvider || 'nut');
+      setGuiExecutor(t?.guiExecutor || 'backend');
+    }).catch(() => {});
+  }, []);
+
+  const handleProviderChange = async (p) => {
+    setSaving(true);
+    try {
+      await updateConfigSection('tools', { guiProvider: p });
+      setGuiProvider(p);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExecutorChange = async (e) => {
+    setSaving(true);
+    try {
+      await updateConfigSection('tools', { guiExecutor: e });
+      setGuiExecutor(e);
+      const { refreshGuiExecutorCache } = await import('../../../api/tools');
+      refreshGuiExecutorCache?.();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="text-sm space-y-3 text-[var(--skill-btn-text)]">
       <h3 className="text-base font-semibold text-[var(--skill-btn-text)]">GUI 模拟工具说明</h3>
+
+      {isElectron && (
+        <div className="rounded-lg border border-[var(--input-bar-border)] bg-[#f0f9ff] p-3">
+          <div className="text-xs font-medium text-[var(--input-placeholder)] mb-2">执行位置</div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="guiExecutor"
+                checked={guiExecutor === 'backend'}
+                onChange={() => handleExecutorChange('backend')}
+                disabled={saving}
+                className="rounded border-[var(--input-bar-border)] text-blue-500 focus:ring-blue-400"
+              />
+              <span>后端执行</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="guiExecutor"
+                checked={guiExecutor === 'node'}
+                onChange={() => handleExecutorChange('node')}
+                disabled={saving}
+                className="rounded border-[var(--input-bar-border)] text-blue-500 focus:ring-blue-400"
+              />
+              <span>节点执行</span>
+            </label>
+            <span className="text-xs text-[var(--input-placeholder)]">节点 = Electron 主进程执行，便于后端远程部署</span>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-[var(--input-bar-border)] bg-[#f8f9fa] p-3">
+        <div className="text-xs font-medium text-[var(--input-placeholder)] mb-2">鼠标/键盘引擎</div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="guiProvider"
+              checked={guiProvider === 'nut'}
+              onChange={() => handleProviderChange('nut')}
+              disabled={saving}
+              className="rounded border-[var(--input-bar-border)] text-blue-500 focus:ring-blue-400"
+            />
+            <span>nut.js</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="guiProvider"
+              checked={guiProvider === 'robotjs'}
+              onChange={() => handleProviderChange('robotjs')}
+              disabled={saving}
+              className="rounded border-[var(--input-bar-border)] text-blue-500 focus:ring-blue-400"
+            />
+            <span>RobotJS</span>
+          </label>
+          <span className="text-xs text-[var(--input-placeholder)]">配置已保存至 backend/data/config.json</span>
+        </div>
+      </div>
+
       <p className="text-[var(--input-placeholder)]">
-        基于 <strong>nut.js</strong>（@nut-tree/nut-js）实现鼠标移动、点击、键盘输入；截屏使用 <strong>screenshot-desktop</strong>。
-        需在 backend 目录执行 <code className="px-1 bg-[#f0f0f0] rounded">npm install @nut-tree/nut-js screenshot-desktop</code> 安装依赖。
+        基于 <strong>nut.js</strong> 或 <strong>robotjs</strong> 实现鼠标移动、点击、键盘输入；截屏使用 <strong>screenshot-desktop</strong>。
+        需在 backend 目录执行 <code className="px-1 bg-[#f0f0f0] rounded">npm install @nut-tree/nut-js screenshot-desktop</code> 或 <code className="px-1 bg-[#f0f0f0] rounded">npm install robotjs screenshot-desktop</code> 安装依赖。
       </p>
       <div className="rounded-lg border border-[var(--input-bar-border)] bg-[#f8f9fa] p-3">
         <div className="text-xs font-medium text-[var(--input-placeholder)] mb-1.5">可用接口</div>

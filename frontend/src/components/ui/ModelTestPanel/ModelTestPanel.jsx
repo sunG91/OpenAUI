@@ -3,8 +3,9 @@
  */
 import { useState, useEffect } from 'react';
 import { MODEL_VENDORS, VENDOR_MODELS } from '../../../data/modelVendors';
-import { getApiKeys } from '../../../api/client';
+import { getApiKeys, getBaiduOcrKeys } from '../../../api/client';
 import { TestDetailView } from './TestDetailView';
+import { BaiduOcrTestView, TesseractOcrTestView } from './OcrModules';
 
 const iconVendor = (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -12,18 +13,30 @@ const iconVendor = (
   </svg>
 );
 
+const iconOcr = (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+  </svg>
+);
+
+const BAIDU_OCR_ID = 'baidu_ocr';
+const TESSERACT_OCR_ID = 'tesseract_ocr';
+
 export function ModelTestPanel({ className = '' }) {
   const [selectedVendorId, setSelectedVendorId] = useState(MODEL_VENDORS[0]?.id ?? null);
   const [maskedKeys, setMaskedKeys] = useState({});
+  const [baiduOcrConfigured, setBaiduOcrConfigured] = useState(false);
   const [selectedForTest, setSelectedForTest] = useState(null);
 
   useEffect(() => {
     getApiKeys().then(setMaskedKeys).catch(() => setMaskedKeys({}));
+    getBaiduOcrKeys().then((r) => setBaiduOcrConfigured(r.configured)).catch(() => setBaiduOcrConfigured(false));
   }, []);
 
-  const models = selectedVendorId ? (VENDOR_MODELS[selectedVendorId] ?? []) : [];
-  const apiKeySet = selectedVendorId ? !!maskedKeys[selectedVendorId] : false;
-  const vendorName = MODEL_VENDORS.find((v) => v.id === selectedVendorId)?.name ?? '';
+  const isToolModule = selectedVendorId === BAIDU_OCR_ID || selectedVendorId === TESSERACT_OCR_ID;
+  const models = selectedVendorId && !isToolModule ? (VENDOR_MODELS[selectedVendorId] ?? []) : [];
+  const apiKeySet = selectedVendorId === BAIDU_OCR_ID ? baiduOcrConfigured : (selectedVendorId ? !!maskedKeys[selectedVendorId] : false);
+  const vendorName = selectedVendorId === BAIDU_OCR_ID ? '百度智能云 OCR' : (selectedVendorId === TESSERACT_OCR_ID ? '本地 OCR' : (MODEL_VENDORS.find((v) => v.id === selectedVendorId)?.name ?? ''));
 
   return (
     <div className={`flex-1 w-full flex overflow-hidden bg-white ${className}`}>
@@ -47,9 +60,40 @@ export function ModelTestPanel({ className = '' }) {
             </button>
           ))}
         </nav>
+        <div className="p-3 border-t border-[var(--input-bar-border)]">
+          <h2 className="text-xs font-medium text-[var(--input-placeholder)] uppercase tracking-wide">工具模块</h2>
+        </div>
+        <nav className="p-2 flex flex-col gap-1 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => { setSelectedVendorId(BAIDU_OCR_ID); setSelectedForTest(null); }}
+            className={`
+              flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors duration-200
+              ${selectedVendorId === BAIDU_OCR_ID ? 'bg-blue-500 text-white' : 'text-[var(--skill-btn-text)] hover:bg-[var(--skill-btn-hover)]'}
+            `}
+          >
+            {iconOcr}
+            <span>百度智能云 OCR</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedVendorId(TESSERACT_OCR_ID); setSelectedForTest(null); }}
+            className={`
+              flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors duration-200
+              ${selectedVendorId === TESSERACT_OCR_ID ? 'bg-blue-500 text-white' : 'text-[var(--skill-btn-text)] hover:bg-[var(--skill-btn-hover)]'}
+            `}
+          >
+            {iconOcr}
+            <span>本地 OCR</span>
+          </button>
+        </nav>
       </aside>
 
-      {selectedForTest ? (
+      {selectedVendorId === BAIDU_OCR_ID ? (
+        <BaiduOcrTestView onBack={() => setSelectedVendorId(MODEL_VENDORS[0]?.id ?? null)} apiKeySet={baiduOcrConfigured} />
+      ) : selectedVendorId === TESSERACT_OCR_ID ? (
+        <TesseractOcrTestView onBack={() => setSelectedVendorId(MODEL_VENDORS[0]?.id ?? null)} />
+      ) : selectedForTest ? (
         <TestDetailView
           vendorId={selectedForTest.vendorId}
           vendorName={selectedForTest.vendorName}

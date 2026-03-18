@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { MODEL_VENDORS } from '../../data/modelVendors';
-import { getApiKeys, saveApiKey } from '../../api/client';
+import { getApiKeys, saveApiKey, getBaiduOcrKeys, saveBaiduOcrKeys } from '../../api/client';
 import { useWebSocketContext } from '../../context/WebSocketContext';
 import { VoicePanel } from './VoicePanel';
 
@@ -29,6 +29,11 @@ export function SettingsPanel({ className = '' }) {
   const [editInput, setEditInput] = useState('');
   const [savedId, setSavedId] = useState(null);
   const [loadErr, setLoadErr] = useState(null);
+  const [baiduOcrMasked, setBaiduOcrMasked] = useState({ ak: '', sk: '' });
+  const [baiduOcrEditing, setBaiduOcrEditing] = useState(false);
+  const [baiduOcrAk, setBaiduOcrAk] = useState('');
+  const [baiduOcrSk, setBaiduOcrSk] = useState('');
+  const [baiduOcrSaved, setBaiduOcrSaved] = useState(false);
   const { clearAuthKey, hasStoredAuthKey, rememberAuthKey, setRememberAuthKey } = useWebSocketContext();
   const [authKeyClearedAt, setAuthKeyClearedAt] = useState(0);
 
@@ -39,9 +44,30 @@ export function SettingsPanel({ className = '' }) {
       .catch((e) => setLoadErr(e.message));
   };
 
+  const loadBaiduOcr = () => {
+    getBaiduOcrKeys().then((r) => setBaiduOcrMasked(r.masked || {})).catch(() => setBaiduOcrMasked({}));
+  };
+
   useEffect(() => {
-    if (activeTab === 'apikey') loadKeys();
+    if (activeTab === 'apikey') {
+      loadKeys();
+      loadBaiduOcr();
+    }
   }, [activeTab]);
+
+  const handleSaveBaiduOcr = async () => {
+    try {
+      const masked = await saveBaiduOcrKeys(baiduOcrAk, baiduOcrSk);
+      setBaiduOcrMasked(masked);
+      setBaiduOcrEditing(false);
+      setBaiduOcrAk('');
+      setBaiduOcrSk('');
+      setBaiduOcrSaved(true);
+      setTimeout(() => setBaiduOcrSaved(false), 2000);
+    } catch (e) {
+      setLoadErr(e.message);
+    }
+  };
 
   const handleStartEdit = (vendorId) => {
     setEditingVendorId(vendorId);
@@ -174,6 +200,75 @@ export function SettingsPanel({ className = '' }) {
                   )}
                 </li>
               ))}
+
+              {/* 百度智能云 OCR */}
+              <li
+                className="
+                  rounded-xl border border-[var(--input-bar-border)] bg-white p-4
+                  shadow-[var(--shadow-input)] hover:shadow-[var(--shadow-input-hover)] transition-shadow
+                "
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="w-10 h-10 rounded-lg bg-[var(--skill-btn-bg)] flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-[var(--input-placeholder)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="text-sm font-medium text-[var(--skill-btn-text)]">百度智能云 OCR</p>
+                    <p className="text-xs text-[var(--input-placeholder)]">通用文字识别，用于图片文字提取</p>
+                  </div>
+                </div>
+                {baiduOcrEditing ? (
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="password"
+                      placeholder="API Key (AK)"
+                      value={baiduOcrAk}
+                      onChange={(e) => setBaiduOcrAk(e.target.value)}
+                      className="px-3 py-2 rounded-lg text-sm bg-[var(--skill-btn-bg)] border border-[var(--input-bar-border)] text-[var(--skill-btn-text)] placeholder:text-[var(--input-placeholder)] outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Secret Key (SK)"
+                      value={baiduOcrSk}
+                      onChange={(e) => setBaiduOcrSk(e.target.value)}
+                      className="px-3 py-2 rounded-lg text-sm bg-[var(--skill-btn-bg)] border border-[var(--input-bar-border)] text-[var(--skill-btn-text)] placeholder:text-[var(--input-placeholder)] outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveBaiduOcr}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600"
+                      >
+                        {baiduOcrSaved ? '已保存' : '保存'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setBaiduOcrEditing(false); setBaiduOcrAk(''); setBaiduOcrSk(''); }}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--skill-btn-bg)] text-[var(--skill-btn-text)] hover:bg-[var(--skill-btn-hover)]"
+                      >
+                        取消
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-[var(--skill-btn-text)] font-mono">
+                      {baiduOcrMasked.ak && baiduOcrMasked.sk
+                        ? `AK: ${baiduOcrMasked.ak} · SK: ${baiduOcrMasked.sk}（已脱敏）`
+                        : '未配置'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBaiduOcrEditing(true)}
+                      className="text-sm text-blue-500 hover:text-blue-600"
+                    >
+                      修改
+                    </button>
+                  </div>
+                )}
+              </li>
             </ul>
           </section>
         )}

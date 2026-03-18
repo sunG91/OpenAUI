@@ -21,6 +21,12 @@ export const TOOL_MODULES = [
     component: 'GuiTools',
   },
   {
+    id: 'winui',
+    label: '系统定位',
+    desc: 'Windows UIA 系统级 UI 定位，坐标永不偏差',
+    component: 'WinuiTools',
+  },
+  {
     id: 'browser',
     label: '浏览器工具',
     desc: '页面打开、点击、输入、截屏（playwright）',
@@ -31,5 +37,11 @@ export const TOOL_MODULES = [
     label: '本地视觉检测',
     desc: 'YOLO/ONNX 离线检测，通用目标识别',
     component: 'VisionTools',
+  },
+  {
+    id: 'canvas',
+    label: 'A2UI 画布',
+    desc: 'Agent 推送可视化，实时渲染 UI 组件',
+    component: 'CanvasTools',
   },
 ];

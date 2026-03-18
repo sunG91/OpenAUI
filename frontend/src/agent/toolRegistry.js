@@ -58,6 +58,7 @@ export function createToolExecutor(tools) {
     browserWait,
     visionDetect,
     visionLocate,
+    winuiLocate,
   } = tools;
 
   const TOOL_ALIASES = { gui_keyboard_input: 'gui_keyboard_type' };
@@ -103,6 +104,10 @@ export function createToolExecutor(tools) {
         result = await guiScreenCapture(obj.region);
         if (result?.image) onCaptureImage(result.image);
         if (result?.screenWidth != null && result?.screenHeight != null) onCaptureImageSize({ width: result.screenWidth, height: result.screenHeight });
+        break;
+      }
+      case 'winui_locate': {
+        result = await winuiLocate({ name: obj.name, automationId: obj.automationId });
         break;
       }
       case 'console_shell':
@@ -254,7 +259,7 @@ export function createToolExecutor(tools) {
 
 /** 所有支持的工具名称列表 */
 export const TOOL_NAMES = [
-  'gui_mouse_move', 'gui_mouse_click', 'gui_keyboard_type', 'gui_screen_capture',
+  'gui_mouse_move', 'gui_mouse_click', 'gui_keyboard_type', 'gui_screen_capture', 'winui_locate',
   'console_shell', 'fs_list', 'fs_read_text', 'fs_write_text', 'process_list', 'process_kill',
   'browser_navigate', 'browser_click', 'browser_type', 'browser_screenshot',
   'browser_dom_interactive', 'browser_scroll', 'browser_execute', 'browser_back', 'browser_wait',

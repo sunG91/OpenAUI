@@ -236,6 +236,58 @@ function mountToolsRoutes(app) {
   const { mountVisionRoutes } = require('../vision');
   mountVisionRoutes(app);
 
+  // ---------- Windows 系统定位（UIA，坐标永不偏差，仅 Windows）----------
+  const { locate: winuiLocate, isWindows: isWin } = require('../services/winui-locate');
+  const { readSection } = require('../config-store');
+  app.post('/api/tools/winui/locate', async (req, res) => {
+    try {
+      if (!isWin()) return fail(res, '系统定位仅支持 Windows');
+      const { name, automationId } = req.body || {};
+      const result = await winuiLocate({ name, automationId });
+      if (!result.ok) return fail(res, result.error);
+      let x = result.x;
+      let y = result.y;
+      // UIA 返回物理坐标，RobotJS/nut 使用逻辑坐标，需按 DPI 缩放转换
+      const tools = readSection('tools') || {};
+      const provider = (tools.guiProvider || 'nut').toLowerCase();
+      if (result.x != null && result.y != null) {
+        try {
+          const screenshotDesktop = require('screenshot-desktop');
+          const buf = await screenshotDesktop({ format: 'png' });
+          const dims = getPngDimensions(buf);
+          if (dims) {
+            let logicalW = dims.width;
+            let logicalH = dims.height;
+            if (provider === 'robotjs') {
+              const robotjs = require('robotjs');
+              if (robotjs) {
+                const size = robotjs.getScreenSize();
+                logicalW = size.width;
+                logicalH = size.height;
+              }
+            } else {
+              const nut = require('@nut-tree/nut-js');
+              if (nut) {
+                const { screen } = nut;
+                logicalW = await screen.width();
+                logicalH = await screen.height();
+              }
+            }
+            const scaleX = logicalW / dims.width;
+            const scaleY = logicalH / dims.height;
+            if (scaleX > 0 && scaleY > 0) {
+              x = Math.round(result.x * scaleX);
+              y = Math.round(result.y * scaleY);
+            }
+          }
+        } catch (_) { /* 转换失败则使用原始坐标 */ }
+      }
+      return ok(res, { x, y, name: result.name, automationId: result.automationId, rect: result.rect });
+    } catch (e) {
+      return fail(res, e?.message || '系统定位失败');
+    }
+  });
+
   // ---------- 视觉定位（用于验证码/人机校验等，需 GUI 模拟点击）----------
   const { locateWithVision, verifyLocateWithVision, verifyClickEffect } = require('../browser/visionIdentify');
   app.post('/api/tools/vision/locate', async (req, res) => {
@@ -279,24 +331,40 @@ function mountToolsRoutes(app) {
 }
 
 function mountGuiRoutes(app, ok, fail) {
-  const guiNotInstalled = (req, res) => fail(res, 'GUI 模块未安装，请执行: npm install @nut-tree/nut-js');
+  const { readSection } = require('../config-store');
+
+  const guiNotInstalled = (req, res) => fail(res, 'GUI 模块未安装，请执行: npm install @nut-tree/nut-js 或 npm install robotjs');
+
   let nut;
+  let robotjs;
   try {
     nut = require('@nut-tree/nut-js');
-  } catch (e) {
-    ['/api/tools/gui/mouse/move', '/api/tools/gui/mouse/click', '/api/tools/gui/keyboard/type'].forEach((r) => app.post(r, guiNotInstalled));
-    mountGuiScreenCapture(app, ok, fail);
-    return;
+  } catch (_) {}
+  try {
+    robotjs = require('robotjs');
+  } catch (_) {}
+
+  function getGuiProvider() {
+    const tools = readSection('tools') || {};
+    const p = (tools.guiProvider || 'nut').toLowerCase();
+    return p === 'robotjs' ? 'robotjs' : 'nut';
   }
 
-  const { mouse, keyboard, straightTo, Point, Button, screen } = nut;
-
-  /** GET /api/tools/gui/screen/size — nut.js 获取的屏幕宽高（鼠标移动使用的坐标系） */
+  /** GET /api/tools/gui/screen/size — 屏幕宽高（鼠标移动使用的坐标系） */
   app.get('/api/tools/gui/screen/size', async (req, res) => {
     try {
-      const width = await screen.width();
-      const height = await screen.height();
-      return ok(res, { width, height });
+      const provider = getGuiProvider();
+      if (provider === 'robotjs' && robotjs) {
+        const size = robotjs.getScreenSize();
+        return ok(res, { width: size.width, height: size.height });
+      }
+      if (nut) {
+        const { screen } = nut;
+        const width = await screen.width();
+        const height = await screen.height();
+        return ok(res, { width, height });
+      }
+      return fail(res, 'GUI 模块未安装');
     } catch (e) {
       return fail(res, e?.message || '获取屏幕尺寸失败');
     }
@@ -308,8 +376,17 @@ function mountGuiRoutes(app, ok, fail) {
       const x = Number(req.body?.x);
       const y = Number(req.body?.y);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return fail(res, 'x、y 必须为数字');
-      await mouse.move(straightTo(new Point(x, y)));
-      return ok(res, { x, y });
+      const provider = getGuiProvider();
+      if (provider === 'robotjs' && robotjs) {
+        robotjs.moveMouse(x, y);
+        return ok(res, { x, y });
+      }
+      if (nut) {
+        const { mouse, straightTo, Point } = nut;
+        await mouse.move(straightTo(new Point(x, y)));
+        return ok(res, { x, y });
+      }
+      return guiNotInstalled(req, res);
     } catch (e) {
       return fail(res, e?.message || '鼠标移动失败');
     }
@@ -320,20 +397,34 @@ function mountGuiRoutes(app, ok, fail) {
     try {
       const button = (req.body?.button || 'left').toLowerCase();
       const doubleClick = req.body?.doubleClick === true;
-      if (req.body?.x != null && req.body?.y != null) {
-        const x = Number(req.body.x);
-        const y = Number(req.body.y);
-        if (Number.isFinite(x) && Number.isFinite(y)) {
-          await mouse.move(straightTo(new Point(x, y)));
+      const provider = getGuiProvider();
+      if (provider === 'robotjs' && robotjs) {
+        if (req.body?.x != null && req.body?.y != null) {
+          const x = Number(req.body.x);
+          const y = Number(req.body.y);
+          if (Number.isFinite(x) && Number.isFinite(y)) robotjs.moveMouse(x, y);
         }
+        robotjs.mouseClick(button, doubleClick);
+        return ok(res, { button, doubleClick });
       }
-      const btn = button === 'right' ? Button.RIGHT : Button.LEFT;
-      if (doubleClick) {
-        await mouse.doubleClick(btn);
-      } else {
-        await mouse.click(btn);
+      if (nut) {
+        const { mouse, straightTo, Point, Button } = nut;
+        if (req.body?.x != null && req.body?.y != null) {
+          const x = Number(req.body.x);
+          const y = Number(req.body.y);
+          if (Number.isFinite(x) && Number.isFinite(y)) {
+            await mouse.move(straightTo(new Point(x, y)));
+          }
+        }
+        const btn = button === 'right' ? Button.RIGHT : Button.LEFT;
+        if (doubleClick) {
+          await mouse.doubleClick(btn);
+        } else {
+          await mouse.click(btn);
+        }
+        return ok(res, { button, doubleClick });
       }
-      return ok(res, { button, doubleClick });
+      return guiNotInstalled(req, res);
     } catch (e) {
       return fail(res, e?.message || '鼠标点击失败');
     }
@@ -344,8 +435,17 @@ function mountGuiRoutes(app, ok, fail) {
     try {
       const text = typeof req.body?.text === 'string' ? req.body.text : '';
       if (!text) return fail(res, '缺少 text');
-      await keyboard.type(text);
-      return ok(res, { length: text.length });
+      const provider = getGuiProvider();
+      if (provider === 'robotjs' && robotjs) {
+        robotjs.typeString(text);
+        return ok(res, { length: text.length });
+      }
+      if (nut) {
+        const { keyboard } = nut;
+        await keyboard.type(text);
+        return ok(res, { length: text.length });
+      }
+      return guiNotInstalled(req, res);
     } catch (e) {
       return fail(res, e?.message || '键盘输入失败');
     }
