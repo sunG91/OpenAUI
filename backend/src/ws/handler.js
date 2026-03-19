@@ -12,6 +12,11 @@ const MSG_ECHO = 'echo';
 const { getQuickFixedModel } = require('../skill-settings-store');
 const { readApiKeys } = require('../apikeys-store');
 const { getProvider } = require('../services/modelProviders');
+const { CHAT_SYSTEM_PROMPT } = require('../config/chatSystemPrompt');
+const { queryByText } = require('../vectra');
+
+const CHAT_MEMORY_COLLECTION = 'chat-memory';
+const CHAT_MEMORY_TOP_K = 5;
 
 function parseMessage(data) {
   try {
@@ -75,53 +80,93 @@ function createConnectionHandler(auth) {
         const quick = msg.quick === true;
 
         if (quick) {
-          const fixed = getQuickFixedModel();
-          if (!fixed || !fixed.vendorId || !fixed.modelId) {
-            send(ws, MSG_ECHO, {
-              content: '请先在「技能」页为「快速」设置固定模型（厂商 + 模型）后再使用快速发送。',
-              quick: true,
-              timestamp: Date.now()
+          (async () => {
+            const fixed = getQuickFixedModel();
+            if (!fixed || !fixed.vendorId || !fixed.modelId) {
+              send(ws, MSG_ECHO, {
+                content: '请先在「技能」页为「快速」设置固定模型（厂商 + 模型）后再使用快速发送。',
+                quick: true,
+                timestamp: Date.now()
+              });
+              return;
+            }
+            const stored = readApiKeys();
+            const apiKey = stored[fixed.vendorId];
+            if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+              send(ws, MSG_ECHO, {
+                content: `请先在「设置」中保存厂商「${fixed.vendorId}」的 API Key。`,
+                quick: true,
+                timestamp: Date.now()
+              });
+              return;
+            }
+            const provider = getProvider(fixed.vendorId);
+            if (!provider || typeof provider.chat !== 'function') {
+              send(ws, MSG_ECHO, {
+                content: `快速固定模型使用的厂商暂不支持：${fixed.vendorId}`,
+                quick: true,
+                timestamp: Date.now()
+              });
+              return;
+            }
+            let systemContent = CHAT_SYSTEM_PROMPT;
+            try {
+              const memResult = await queryByText(CHAT_MEMORY_COLLECTION, userContent, CHAT_MEMORY_TOP_K);
+              const items = (memResult?.results || []).filter((r) => r?.metadata?.text);
+              if (items.length > 0) {
+                const memoryLines = items.map((r, i) => `${i + 1}. ${(r.metadata.text || '').trim()}`).filter(Boolean);
+                if (memoryLines.length > 0) {
+                  systemContent += `\n\n【以下是与当前问题相关的记忆（来自用户加深记忆的内容，供参考）：】\n${memoryLines.join('\n')}`;
+                }
+              }
+            } catch (_) {}
+            provider.chat({
+              apiKey,
+              modelId: fixed.modelId,
+              messages: [
+                { role: 'system', content: systemContent },
+                { role: 'user', content: userContent },
+              ],
+              stream: true
+            }).then(async (streamResult) => {
+              if (streamResult && typeof streamResult[Symbol.asyncIterator] === 'function') {
+                let content = '';
+                let reasoning = '';
+                for await (const chunk of streamResult) {
+                  const delta = chunk.choices?.[0]?.delta ?? {};
+                  if (delta.content) content += delta.content;
+                  if (delta.reasoning_content) reasoning += delta.reasoning_content;
+                  send(ws, MSG_ECHO, {
+                    content,
+                    reasoning_content: reasoning || undefined,
+                    quick: true,
+                    streaming: true,
+                    timestamp: Date.now()
+                  });
+                }
+                send(ws, MSG_ECHO, {
+                  content,
+                  reasoning_content: reasoning || undefined,
+                  quick: true,
+                  streaming: false,
+                  timestamp: Date.now()
+                });
+              } else {
+                send(ws, MSG_ECHO, {
+                  content: (streamResult?.content ?? '') || '',
+                  reasoning_content: streamResult?.reasoning_content ?? '',
+                  quick: true,
+                  timestamp: Date.now()
+                });
+              }
+            }).catch((err) => {
+              send(ws, MSG_ECHO, {
+                content: `调用失败：${err?.message || String(err)}`,
+                quick: true,
+                timestamp: Date.now()
+              });
             });
-            return;
-          }
-          const stored = readApiKeys();
-          const apiKey = stored[fixed.vendorId];
-          if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-            send(ws, MSG_ECHO, {
-              content: `请先在「设置」中保存厂商「${fixed.vendorId}」的 API Key。`,
-              quick: true,
-              timestamp: Date.now()
-            });
-            return;
-          }
-          const provider = getProvider(fixed.vendorId);
-          if (!provider || typeof provider.chat !== 'function') {
-            send(ws, MSG_ECHO, {
-              content: `快速固定模型使用的厂商暂不支持：${fixed.vendorId}`,
-              quick: true,
-              timestamp: Date.now()
-            });
-            return;
-          }
-          provider.chat({
-            apiKey,
-            modelId: fixed.modelId,
-            message: userContent,
-            stream: false
-          }).then((result) => {
-            send(ws, MSG_ECHO, {
-              content: result.content ?? '',
-              reasoning_content: result.reasoning_content ?? '',
-              quick: true,
-              timestamp: Date.now()
-            });
-          }).catch((err) => {
-            send(ws, MSG_ECHO, {
-              content: `调用失败：${err?.message || String(err)}`,
-              quick: true,
-              timestamp: Date.now()
-            });
-          });
+          })();
           return;
         }
 

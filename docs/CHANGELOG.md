@@ -6,12 +6,16 @@
 
 ## 0.1.9（2026-03-19）
 
+- 新增：**聊天历史** 侧边栏新增「历史」入口，展示会话列表；支持创建、删除、分页；刷新页面后自动恢复上次对话；消息可追加、删除、回滚；可选向量存储（deepenMemory）加深记忆。
+- 新增：**聊天系统提示词** `backend/src/config/chatSystemPrompt.js`，主聊天使用 Open AUI 助手身份，区别于底层模型默认身份。
+- 新增：**espeak-ng 安装脚本** `scripts/setup-espeak-ng.bat` / `scripts/setup-espeak-ng.ps1`，解决 Piper TTS 的 `espeak-ng-data\phontab` 缺失问题；以管理员身份运行可自动下载并安装 espeak-ng 1.52.0。
 - 新增：**记忆存储** 侧边栏新增「记忆存储」模块（Skills 库下方），基于 Vectra + Xenova 本地向量存储，向量数据存于 `backend/data/vectra/` 独立目录。
 - 新增：**向量嵌入** 对接 @xenova/transformers，默认 Xenova/all-MiniLM-L6-v2（384 维），国内默认使用 HF 镜像；支持 `insertText`、`queryByText` 文本级记忆。
 - 新增：**模型测试 - 向量模型** 工具模块中新增「向量模型」入口，可测试文本→向量嵌入，无需 API Key。
 - 新增：**一键安装** `npm run install-all` 支持 `--skip-embeddings`，自动预下载 Embeddings 模型；国内默认 `HF_ENDPOINT=https://hf-mirror.com`。
 - 优化：**侧边栏** 导航项超出时支持纵向滚动。
 - 优化：**install-all** 移除 zvec（Python），记忆存储改用 Node.js 原生 Vectra。
+- 文档：README 新增 v0.1.9 首页界面预览图；产品设计文档新增 4.4 首页参考图（v0.1.9）。
 
 ## 0.1.8（2026-03-18）
 

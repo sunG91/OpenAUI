@@ -150,7 +150,18 @@ function mountVoiceRoutes(app) {
           });
         }
       } else if (settings.ttsEngine === 'piper') {
-        await synthesizeWithPiper({ text, outPath, voiceId: voice, rate });
+        try {
+          await synthesizeWithPiper({ text, outPath, voiceId: voice, rate });
+        } catch (e) {
+          const msg = String(e?.message || e);
+          if (/espeak-ng-data|phontab|No such file/.test(msg)) {
+            return res.status(500).json({
+              success: false,
+              error: `Piper 需要 espeak-ng 数据。请安装 espeak-ng（https://github.com/espeak-ng/espeak-ng/releases 下载 .msi）或改用 Edge TTS（设置 → 语音 → 文字转语音引擎）。`,
+            });
+          }
+          throw e;
+        }
       } else {
         await synthesizeWithSapi({ text, outPath, voice, rate });
       }

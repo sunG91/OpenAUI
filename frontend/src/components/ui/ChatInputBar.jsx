@@ -102,6 +102,7 @@ export function ChatInputBar({
   skills = DEFAULT_SKILLS,
   showPlus = true,
   className = '',
+  inputRef,
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [morePopupRect, setMorePopupRect] = useState(null);
@@ -164,12 +165,14 @@ export function ChatInputBar({
         <div className="flex items-center gap-2">
           <div className="flex-1 flex items-center px-3 py-1.5 rounded-full bg-white/80">
             <input
+              ref={inputRef}
               type="text"
               value={value}
               onChange={(e) => onChange?.(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={disabled}
+              readOnly={false}
               className="flex-1 min-w-0 bg-transparent text-[var(--skill-btn-text)] placeholder:text-[var(--input-placeholder)] text-sm outline-none"
             />
             {onVoiceToggle && (
@@ -214,6 +217,17 @@ export function ChatInputBar({
                 </svg>
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => onSend?.()}
+              disabled={disabled || !(value || '').trim()}
+              title="发送"
+              className="ml-1 flex items-center justify-center rounded-full w-8 h-8 text-[var(--input-placeholder)] hover:bg-[var(--skill-btn-hover)] hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[var(--input-placeholder)] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

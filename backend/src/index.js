@@ -35,6 +35,8 @@ mountVoiceRoutes(app);
 mountToolsRoutes(app);
 mountMcpRoutes(app);
 app.use('/api/skills', skillsRouter);
+const { router: chatHistoryRouter } = require('./routes/chatHistory');
+app.use('/api/chat-history', chatHistoryRouter);
 const { mountCanvasRoutes } = require('./routes/canvas');
 const { mountMemoryStorageRoutes } = require('./routes/memoryStorage');
 mountCanvasRoutes(app);

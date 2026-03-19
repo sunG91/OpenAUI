@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
-const { execFile } = require('child_process');
 
 function getPiperBinDir() {
   // backend/src/voice/tts -> backend/piper/bin
@@ -58,9 +57,30 @@ function ensurePiperRuntimeInTemp() {
   }
   const espeakSrc = path.join(srcBin, 'espeak-ng-data');
   const espeakDst = path.join(dstBin, 'espeak-ng-data');
-  if (fs.existsSync(espeakSrc) && !fs.existsSync(espeakDst)) copyDirSync(espeakSrc, espeakDst);
+  const srcHasPhontab = fs.existsSync(espeakSrc) && fs.existsSync(path.join(espeakSrc, 'phontab'));
+  const dstHasPhontab = fs.existsSync(espeakDst) && fs.existsSync(path.join(espeakDst, 'phontab'));
+  if (srcHasPhontab && !dstHasPhontab) {
+    try { fs.rmSync(espeakDst, { recursive: true }); } catch {}
+    copyDirSync(espeakSrc, espeakDst);
+  }
+  let hasEspeakData = fs.existsSync(espeakDst) && fs.existsSync(path.join(espeakDst, 'phontab'));
+  let espeakDataPath = hasEspeakData ? espeakDst : null;
 
-  return { dstBin, dstModels };
+  if (!hasEspeakData && process.platform === 'win32') {
+    const sysPaths = [
+      path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'eSpeak NG', 'espeak-ng-data'),
+      path.join(process.env.ProgramFiles || 'C:\\Program Files', 'eSpeak NG', 'espeak-ng-data'),
+    ];
+    for (const p of sysPaths) {
+      if (fs.existsSync(p) && fs.existsSync(path.join(p, 'phontab'))) {
+        espeakDataPath = p;
+        hasEspeakData = true;
+        break;
+      }
+    }
+  }
+
+  return { dstBin, dstModels, hasEspeakData, espeakDst: espeakDataPath || espeakDst };
 }
 
 function ensureModelInTemp(voiceId, dstModels) {
@@ -136,7 +156,7 @@ async function synthesizeWithPiper({ text, outPath, voiceId, rate = 0 }) {
   if (process.platform !== 'win32') {
     throw new Error('Piper 当前仅在 Windows 环境已集成');
   }
-  const { dstBin, dstModels } = ensurePiperRuntimeInTemp();
+  const { dstBin, dstModels, hasEspeakData, espeakDst } = ensurePiperRuntimeInTemp();
   const exe = path.join(dstBin, 'piper.exe');
 
   const modelPath = ensureModelInTemp(voiceId, dstModels);
@@ -148,21 +168,23 @@ async function synthesizeWithPiper({ text, outPath, voiceId, rate = 0 }) {
   const lengthScale = rateToLengthScale(rate);
   const tuning = pickPiperTuning(voiceId);
 
-  const espeakData = path.join(dstBin, 'espeak-ng-data');
+  const args = [
+    '-m', modelPath,
+    '-f', out,
+    '--length_scale', String(lengthScale),
+    '--noise_scale', String(tuning.noiseScale),
+    '--noise_w', String(tuning.noiseW),
+    '--sentence_silence', String(tuning.sentenceSilence),
+  ];
+  if (hasEspeakData && espeakDst) {
+    args.push('--espeak_data', espeakDst);
+  }
 
   // echo "text" | piper.exe -m model.onnx -f out.wav --length_scale 0.9
   return new Promise((resolve, reject) => {
     const p = spawn(
       exe,
-      [
-        '-m', modelPath,
-        '-f', out,
-        '--length_scale', String(lengthScale),
-        '--noise_scale', String(tuning.noiseScale),
-        '--noise_w', String(tuning.noiseW),
-        '--sentence_silence', String(tuning.sentenceSilence),
-        '--espeak_data', espeakData,
-      ],
+      args,
       {
       cwd: path.dirname(exe),
       windowsHide: true,

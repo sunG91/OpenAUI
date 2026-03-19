@@ -1,24 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
-import { AIAvatar, MessageBubble, ChatInputBar, SuggestionChips, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, AuiPanel, MemoryStoragePanel, ChangelogModal } from './ui';
+import { AIAvatar, MessageBubble, ChatInputBar, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, AuiPanel, MemoryStoragePanel, ChatHistoryPanel, ChangelogModal } from './ui';
 import { getVoiceSettings, sttFromAudioBlob, ttsFromText } from '../api/client';
+import {
+  createChatSession,
+  appendChatMessage,
+  deepenMemory,
+  deleteChatSession,
+  getChatSession,
+  rollbackChatMessage,
+} from '../api/chatHistory';
 import { stripEmojisForSpeech } from '../utils/speechText';
 
-const SUGGESTION_ITEMS = ['你能做些什么?', '你是谁?', '你是怎么工作的?'];
+const STORAGE_LAST_SESSION = 'openaui_last_chat_session';
 
 export function MainLayout() {
-  const [sidebarActive, setSidebarActive] = useState(
-    () => window.localStorage.getItem('openaui_sidebar_active') || 'chat',
-  );
+  const [sidebarActive, setSidebarActive] = useState(() => {
+    try {
+      const lastSession = window.localStorage.getItem(STORAGE_LAST_SESSION);
+      if (lastSession) return 'chat';
+      return window.localStorage.getItem('openaui_sidebar_active') || 'chat';
+    } catch {
+      return 'chat';
+    }
+  });
   const [mode, setMode] = useState('chat');
   const [voiceActive, setVoiceActive] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [restoringSession, setRestoringSession] = useState(() => {
+    try {
+      return !!window.localStorage.getItem(STORAGE_LAST_SESSION);
+    } catch {
+      return false;
+    }
+  });
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const sessionIdRef = useRef(null);
+  const awaitingAiResponseRef = useRef(false);
+  const lastProcessedEchoRef = useRef(null);
+  const streamingAssistantIdRef = useRef(null);
   const [quickMode, setQuickMode] = useState(true);
   const [mcpMode, setMcpMode] = useState(false);
   const [suiMode, setSuiMode] = useState(false);
   const messagesEndRef = useRef(null);
+  const chatInputRef = useRef(null);
   const { send, lastMessage, authenticated } = useWebSocketContext();
   const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
   const appLicense = typeof __APP_LICENSE__ !== 'undefined' ? __APP_LICENSE__ : '未设置';
@@ -31,11 +58,62 @@ export function MainLayout() {
   const [voiceBusy, setVoiceBusy] = useState(false);
   const [contextMenu, setContextMenu] = useState({ open: false, x: 0, y: 0 });
 
+  useEffect(() => {
+    sessionIdRef.current = currentSessionId;
+    try {
+      if (currentSessionId) {
+        window.localStorage.setItem(STORAGE_LAST_SESSION, currentSessionId);
+      } else {
+        window.localStorage.removeItem(STORAGE_LAST_SESSION);
+      }
+    } catch {}
+  }, [currentSessionId]);
+
+  // 刷新页面时加载上次的对话历史，并回到聊天视图
+  useEffect(() => {
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) setRestoringSession(false);
+    }, 8000);
+    (async () => {
+      try {
+        const lastId = window.localStorage.getItem(STORAGE_LAST_SESSION);
+        if (!lastId) {
+          setRestoringSession(false);
+          clearTimeout(timeout);
+          return;
+        }
+        const session = await getChatSession(lastId);
+        if (cancelled) return;
+        clearTimeout(timeout);
+        setMessages(session.messages || []);
+        setCurrentSessionId(session.id);
+        setSidebarActive('chat');
+        try {
+          window.localStorage.setItem('openaui_sidebar_active', 'chat');
+        } catch {}
+      } catch {
+        try {
+          window.localStorage.removeItem(STORAGE_LAST_SESSION);
+        } catch {}
+      } finally {
+        if (!cancelled) {
+          clearTimeout(timeout);
+          setRestoringSession(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, []);
+
   const handleSidebarSelect = (id) => {
     if (id === 'new') {
       setMessages([]);
+      setCurrentSessionId(null);
       setInputValue('');
-      // 新建只清空对话，不改变选中状态，仍保持「对话」选中
       return;
     }
     setSidebarActive(id);
@@ -69,41 +147,96 @@ export function MainLayout() {
   };
 
   useEffect(() => {
-    if (lastMessage?.type === 'echo' && (lastMessage?.content != null || lastMessage?.reasoning_content != null)) {
+    if (
+      lastMessage?.type === 'echo' &&
+      awaitingAiResponseRef.current &&
+      (lastMessage?.content != null || lastMessage?.reasoning_content != null)
+    ) {
       const reasoning = lastMessage.reasoning_content ?? '';
       const text = lastMessage.content ?? '';
       const content = reasoning ? `思考：${reasoning}\n\n回答：${text}` : text;
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: content || '（无内容）',
-          time: new Date().toLocaleTimeString(),
-        },
-      ]);
+      const isStreaming = lastMessage.streaming === true;
+      const fullContent = content || '（无内容）';
 
-      // 自动朗读（如果用户在设置里开启，只朗读回答部分）
-      (async () => {
-        try {
-          const s = await getVoiceSettings();
-          if (!s?.enabled || !s?.ttsEnabled || !s?.autoReadAssistant) return;
-          const toRead = lastMessage.content ?? '';
-          const text = stripEmojisForSpeech(toRead);
-          if (!text) return;
-          const r = await ttsFromText(text, { voice: s.ttsVoice || '', rate: typeof s.ttsRate === 'number' ? s.ttsRate : 0 });
-          if (r?.audioUrl) {
-            const url = `http://localhost:${new URLSearchParams(window.location.search).get('backendPort') || '9527'}${r.audioUrl}`;
-            const audio = new Audio(url);
-            audio.play().catch(() => {});
+      const echoSig = `${text}|${reasoning}|${isStreaming}|${lastMessage?.timestamp ?? 0}`;
+      if (lastProcessedEchoRef.current === echoSig) return;
+      lastProcessedEchoRef.current = echoSig;
+      if (!isStreaming) awaitingAiResponseRef.current = false;
+
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        const existingId = streamingAssistantIdRef.current;
+        const target = existingId ? prev.find((m) => m.id === existingId) : null;
+
+        if (target && (target.streaming || isStreaming)) {
+          const updated = { ...target, content: fullContent, streaming: isStreaming };
+          if (!isStreaming) streamingAssistantIdRef.current = null;
+          if (!isStreaming && mode === 'chat' && sessionIdRef.current) {
+            appendChatMessage(sessionIdRef.current, { ...updated, id: target.id }).catch(() => {});
           }
-        } catch {
-          // 忽略自动朗读错误，不影响对话
+          return prev.map((m) => (m.id === target.id ? updated : m));
         }
-      })();
+        if (last?.role === 'assistant' && (last.streaming || isStreaming)) {
+          const updated = { ...last, content: fullContent, streaming: isStreaming };
+          if (!streamingAssistantIdRef.current) streamingAssistantIdRef.current = last.id;
+          if (!isStreaming) streamingAssistantIdRef.current = null;
+          if (!isStreaming && mode === 'chat' && sessionIdRef.current) {
+            appendChatMessage(sessionIdRef.current, { ...updated, id: last.id }).catch(() => {});
+          }
+          return [...prev.slice(0, -1), updated];
+        }
+        if (streamingAssistantIdRef.current && !target) {
+          streamingAssistantIdRef.current = null;
+        }
+        const assistantMsg = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: fullContent,
+          time: new Date().toLocaleTimeString(),
+          streaming: isStreaming,
+        };
+        streamingAssistantIdRef.current = assistantMsg.id;
+        if (!isStreaming) streamingAssistantIdRef.current = null;
+        if (!isStreaming && mode === 'chat' && sessionIdRef.current) {
+          appendChatMessage(sessionIdRef.current, assistantMsg).catch(() => {});
+        }
+        return [...prev, assistantMsg];
+      });
+
+      if (!isStreaming) {
+        (async () => {
+          try {
+            const s = await getVoiceSettings();
+            if (!s?.enabled || !s?.ttsEnabled || s?.autoReadAssistant === false) return;
+            const toRead = lastMessage.content ?? '';
+            const t = stripEmojisForSpeech(toRead);
+            if (!t) return;
+            const r = await ttsFromText(t, { voice: s.ttsVoice || '', rate: typeof s.ttsRate === 'number' ? s.ttsRate : 0 });
+            if (r?.audioUrl) {
+              const url = `http://localhost:${new URLSearchParams(window.location.search).get('backendPort') || '9527'}${r.audioUrl}`;
+              const audio = new Audio(url);
+              audio.play().catch(() => {});
+            }
+          } catch {}
+        })();
+      }
     }
-  }, [lastMessage]);
+  }, [lastMessage, mode]);
 
   useEffect(() => scrollToBottom(), [messages]);
+
+  // 当消息为空且存在会话时，删除该会话（如回退导致清空）
+  useEffect(() => {
+    if (restoringSession) return;
+    if (messages.length === 0 && currentSessionId) {
+      deleteChatSession(currentSessionId).catch(() => {});
+      setCurrentSessionId(null);
+      try {
+        window.localStorage.removeItem(STORAGE_LAST_SESSION);
+      } catch {}
+      window.dispatchEvent(new CustomEvent('openaui:chat-session-deleted', { detail: { sessionId: currentSessionId } }));
+    }
+  }, [messages.length, currentSessionId, restoringSession]);
 
   useEffect(() => {
     return () => {
@@ -168,7 +301,28 @@ export function MainLayout() {
           const text = String(r?.text || '').trim();
           if (!text) return;
           if (s.autoSendAfterStt !== false) {
-            setMessages((prev) => [...prev, { role: 'user', content: text, time: new Date().toLocaleTimeString() }]);
+            let sid = sessionIdRef.current;
+            if (mode === 'chat' && !sid) {
+              try {
+                const session = await createChatSession();
+                sid = session.id;
+                setCurrentSessionId(sid);
+                sessionIdRef.current = sid;
+              } catch {}
+            }
+            const userMsg = {
+              id: crypto.randomUUID(),
+              role: 'user',
+              content: text,
+              time: new Date().toLocaleTimeString(),
+            };
+            setMessages((prev) => [...prev, userMsg]);
+            if (mode === 'chat' && sid) {
+              appendChatMessage(sid, userMsg).catch(() => {});
+            }
+            awaitingAiResponseRef.current = true;
+            streamingAssistantIdRef.current = null;
+            lastProcessedEchoRef.current = null;
             send('message', { content: text });
           } else {
             setInputValue(text);
@@ -219,24 +373,42 @@ export function MainLayout() {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text) return;
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: text, time: new Date().toLocaleTimeString() },
-    ]);
-    send('message', { content: text, quick: quickMode });
-    if (quickMode) setQuickMode(false);
+    if (!text || restoringSession) return;
+    let sid = currentSessionId;
+    if (mode === 'chat' && !sid) {
+      try {
+        const session = await createChatSession();
+        sid = session.id;
+        setCurrentSessionId(sid);
+        sessionIdRef.current = sid;
+      } catch {}
+    }
+    const userMsg = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: text,
+      time: new Date().toLocaleTimeString(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    if (mode === 'chat' && sid) {
+      appendChatMessage(sid, userMsg).catch(() => {});
+    }
+    awaitingAiResponseRef.current = true;
+    streamingAssistantIdRef.current = null;
+    lastProcessedEchoRef.current = null;
+    send('message', { content: text, quick: mode === 'chat' ? true : quickMode });
     setInputValue('');
   };
 
-  const handleSuggestionSelect = (text) => {
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: text, time: new Date().toLocaleTimeString() },
-    ]);
-    send('message', { content: text });
+  const handleLoadChatSession = (session) => {
+    setMessages(session.messages || []);
+    setCurrentSessionId(session.id);
+    setSidebarActive('chat');
+    try {
+      window.localStorage.setItem('openaui_sidebar_active', 'chat');
+    } catch {}
   };
 
   const handleSkillSelect = (skillId) => {
@@ -276,7 +448,29 @@ export function MainLayout() {
             </div>
           </div>
           {sidebarActive === 'chat' && (
-            <div className="relative inline-flex items-center group">
+            <div className="flex items-center gap-2">
+              {currentSessionId && (
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded text-xs text-red-500 hover:bg-red-50"
+                  title="删除当前对话"
+                  onClick={async () => {
+                    if (!confirm('确定删除当前对话？')) return;
+                    try {
+                      await deleteChatSession(currentSessionId);
+                      setMessages([]);
+                      setCurrentSessionId(null);
+                      try {
+                        window.localStorage.removeItem(STORAGE_LAST_SESSION);
+                      } catch {}
+                      window.dispatchEvent(new CustomEvent('openaui:chat-session-deleted', { detail: { sessionId: currentSessionId } }));
+                    } catch {}
+                  }}
+                >
+                  删除对话
+                </button>
+              )}
+              <div className="relative inline-flex items-center group">
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
@@ -297,32 +491,37 @@ export function MainLayout() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </span>
+              </div>
             </div>
           )}
         </header>
 
-        <main className="flex-1 flex flex-col items-center overflow-hidden bg-white">
+        <main className="flex-1 flex flex-col items-stretch overflow-hidden bg-white">
           {sidebarActive === 'memory-storage' ? (
-            <MemoryStoragePanel />
+            <div className="flex-1 w-full flex flex-col min-h-0 overflow-hidden">
+              <MemoryStoragePanel />
+            </div>
           ) : sidebarActive === 'history' ? (
-            <div className="flex-1 w-full flex flex-col items-center justify-center px-4">
-              <div className="max-w-sm w-full rounded-2xl border-2 border-dashed border-[var(--input-bar-border)] bg-[#fafafa] p-10 text-center">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 text-amber-600 mb-4">
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-base font-medium text-[var(--skill-btn-text)] mb-1">历史记录</h3>
-                <p className="text-sm text-[var(--input-placeholder)] mb-2">对话历史与操作记录</p>
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">
-                  暂未开发
-                </span>
-              </div>
+            <div className="flex-1 w-full flex flex-col min-h-0 overflow-hidden">
+              <ChatHistoryPanel
+                onLoadSession={handleLoadChatSession}
+                onSessionDeleted={(sessionId) => {
+                  if (sessionId === currentSessionId) {
+                    setMessages([]);
+                    setCurrentSessionId(null);
+                    try {
+                      window.localStorage.removeItem(STORAGE_LAST_SESSION);
+                    } catch {}
+                  }
+                }}
+              />
             </div>
           ) : sidebarActive === 'aui' ? (
             <AuiPanel />
           ) : sidebarActive === 'settings' ? (
-            <SettingsPanel />
+            <div className="flex-1 w-full flex flex-col items-center min-h-0 overflow-hidden">
+              <SettingsPanel />
+            </div>
           ) : sidebarActive === 'tools' ? (
             <ToolsPanel />
           ) : sidebarActive === 'skills' ? (
@@ -334,27 +533,55 @@ export function MainLayout() {
           ) : sidebarActive === 'model-test' ? (
             <ModelTestPanel />
           ) : (
-            <>
+            <div className="flex-1 w-full flex flex-col items-center min-h-0 overflow-hidden">
               <div className="flex-1 w-full max-w-4xl overflow-y-auto px-4 py-4 bg-white">
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center py-8">
-                    <p className="text-center text-[var(--input-placeholder)] text-sm mb-6">
-                      {mode === 'chat' ? '开始对话吧～' : '切换到 AUI 模式，让 AI 帮你操作电脑'}
+                {restoringSession ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <p className="text-[var(--input-placeholder)] text-sm">加载对话中...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <p className="text-center text-[var(--input-placeholder)] text-sm">
+                      {mode === 'chat' ? '输入消息开始对话' : '切换到 AUI 模式，让 AI 帮你操作电脑'}
                     </p>
-                    <SuggestionChips
-                      items={SUGGESTION_ITEMS}
-                      onSelect={handleSuggestionSelect}
-                    />
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {messages.map((m, i) => (
                       <MessageBubble
-                        key={i}
+                        key={m.id || i}
                         role={m.role}
                         content={m.content}
                         time={m.time}
                         index={i}
+                        streaming={m.streaming}
+                        messageId={m.id}
+                        sessionId={currentSessionId}
+                        memoryId={m.memoryId}
+                        showActions={mode === 'chat' && !!currentSessionId}
+                        canRollback={i < messages.length - 1}
+                        showDeepenMemory={m.role === 'assistant'}
+                        onRollback={async () => {
+                          if (!currentSessionId || !m.id) return;
+                          if (!confirm('确定回退到此？此后所有消息将被清除，可从这一步重新对话。')) return;
+                          try {
+                            await rollbackChatMessage(currentSessionId, m.id);
+                            setMessages((prev) => prev.slice(0, i));
+                            setInputValue(m.content || '');
+                            setTimeout(() => chatInputRef.current?.focus(), 50);
+                          } catch {}
+                        }}
+                        onDeepenMemory={async () => {
+                          if (!currentSessionId || !m.id || m.memoryId) return;
+                          try {
+                            const { memoryId: mid } = await deepenMemory(currentSessionId, m.id);
+                            if (mid) {
+                              setMessages((prev) =>
+                                prev.map((x) => (x.id === m.id ? { ...x, memoryId: mid } : x))
+                              );
+                            }
+                          } catch {}
+                        }}
                       />
                     ))}
                   </div>
@@ -366,6 +593,7 @@ export function MainLayout() {
                   value={inputValue}
                   onChange={setInputValue}
                   onSend={handleSend}
+                  inputRef={chatInputRef}
                   onSkillSelect={handleSkillSelect}
                   onPlusClick={() => setSidebarActive('skills')}
                   quickMode={quickMode}
@@ -378,10 +606,10 @@ export function MainLayout() {
                     if (voiceActive) stopRecording();
                     else startRecording();
                   }}
-                  disabled={!authenticated}
+                  disabled={!authenticated || restoringSession || (messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.streaming)}
                 />
               </div>
-            </>
+            </div>
           )}
         </main>
 

@@ -11,6 +11,7 @@ const {
   fetch,
   deleteById,
   stats,
+  listItems,
   checkAvailable,
 } = require('./store');
 const { insertText, queryByText, checkAvailable: memoryAvailable } = require('./memory');
@@ -25,6 +26,7 @@ module.exports = {
   fetch,
   deleteById,
   stats,
+  listItems,
   checkAvailable,
   // 文本级记忆（依赖 embeddings）
   insertText,

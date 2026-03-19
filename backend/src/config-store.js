@@ -39,7 +39,7 @@ const SECTION_DEFAULTS = {
     autoSendAfterStt: true,
     ttsEnabled: true,
     ttsEngine: 'sapi',
-    autoReadAssistant: false,
+    autoReadAssistant: true,
     ttsVoice: '',
     ttsRate: 0,
     gptsovitsApiUrl: 'http://127.0.0.1:9880',

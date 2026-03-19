@@ -1,56 +1,267 @@
 /**
- * 记忆存储面板 - 基于 Vectra 的本地向量存储
- * 当前仅展示功能模块介绍，具体功能后续实现
+ * 记忆存储面板 - 查看本地向量数据集、关键词搜索
  */
-const iconStorage = (
-  <svg className="w-16 h-16 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-  </svg>
-);
+import { useState, useEffect, useCallback } from 'react';
+import {
+  listCollections,
+  listCollectionItems,
+  getCollectionStats,
+  queryMemory,
+  deleteMemoryItem,
+  checkMemoryAvailable,
+  getMemoryStorageInfo,
+} from '../../api/memoryStorage';
+import { wrapNetworkError } from '../../api/base';
 
 export function MemoryStoragePanel({ className = '' }) {
+  const [collections, setCollections] = useState([]);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  const [items, setItems] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
+  const [available, setAvailable] = useState(false);
+
+  const loadCollections = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const list = await listCollections();
+      setCollections(list);
+      setInfo(await getMemoryStorageInfo());
+      setAvailable(await checkMemoryAvailable());
+    } catch (e) {
+      setError(wrapNetworkError(e)?.message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCollections();
+  }, [loadCollections]);
+
+  const loadItems = useCallback(async (coll) => {
+    if (!coll) return;
+    setLoadingItems(true);
+    setError(null);
+    setSearchResults(null);
+    try {
+      const [itemList, stat] = await Promise.all([
+        listCollectionItems(coll),
+        getCollectionStats(coll),
+      ]);
+      setItems(itemList);
+      setStats(stat?.stats || null);
+    } catch (e) {
+      setError(wrapNetworkError(e)?.message || '加载失败');
+    } finally {
+      setLoadingItems(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedCollection) {
+      loadItems(selectedCollection);
+    } else {
+      setItems([]);
+      setStats(null);
+      setSearchResults(null);
+    }
+  }, [selectedCollection, loadItems]);
+
+  const handleSearch = async () => {
+    const text = searchText.trim();
+    if (!text || !selectedCollection) return;
+    setSearching(true);
+    setError(null);
+    try {
+      const res = await queryMemory(selectedCollection, text, 20);
+      setSearchResults(res?.results || []);
+    } catch (e) {
+      setError(wrapNetworkError(e)?.message || '搜索失败');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleDeleteItem = async (id) => {
+    if (!selectedCollection || !confirm('确定删除该记忆？')) return;
+    try {
+      await deleteMemoryItem(selectedCollection, id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      setSearchResults((prev) => (prev || []).filter((r) => r.item?.id !== id));
+    } catch (e) {
+      setError(wrapNetworkError(e)?.message || '删除失败');
+    }
+  };
+
+  const displayList = searchResults != null ? searchResults : items;
+  const isSearchMode = searchResults != null;
+
   return (
-    <div className={`flex-1 w-full overflow-y-auto px-6 py-8 ${className}`}>
-      <div className="max-w-2xl mx-auto">
-        <div className="flex flex-col items-center text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-indigo-50 mb-4">
-            {iconStorage}
+    <div className={`flex-1 flex flex-col overflow-hidden ${className}`}>
+      {/* 顶部信息栏 */}
+      <div className="flex-shrink-0 px-4 py-3 border-b border-[var(--input-bar-border)] bg-white">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-medium text-[var(--skill-btn-text)]">记忆存储</h2>
+            <p className="text-xs text-[var(--input-placeholder)] mt-0.5">
+              {info?.description || '本地向量数据集'}
+              {available ? (
+                <span className="ml-2 text-green-600">· 可用</span>
+              ) : (
+                <span className="ml-2 text-amber-600">· 嵌入模型加载中</span>
+              )}
+            </p>
           </div>
-          <h2 className="text-xl font-semibold text-[var(--skill-btn-text)] mb-2">记忆存储</h2>
-          <p className="text-sm text-[var(--input-placeholder)]">
-            基于 Vectra 的本地向量数据库，为 AI 对话提供持久化记忆能力
-          </p>
+          <button
+            type="button"
+            className="px-2 py-1 text-xs rounded bg-[var(--skill-btn-bg)] hover:bg-[var(--skill-btn-hover)]"
+            onClick={loadCollections}
+          >
+            刷新
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex-shrink-0 mx-4 mt-2 px-3 py-2 rounded bg-red-50 text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* 左侧：集合列表 */}
+        <div className="flex-shrink-0 w-56 border-r border-[var(--input-bar-border)] flex flex-col overflow-hidden">
+          <div className="flex-shrink-0 px-3 py-2 text-sm font-medium text-[var(--skill-btn-text)]">
+            向量数据集
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="px-3 py-4 text-sm text-[var(--input-placeholder)]">加载中...</div>
+            ) : collections.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-[var(--input-placeholder)]">暂无数据集</div>
+            ) : (
+              <ul className="py-1">
+                {collections.map((c) => (
+                  <li key={c}>
+                    <button
+                      type="button"
+                      className={`w-full px-3 py-2 text-left text-sm truncate transition-colors ${
+                        selectedCollection === c
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'hover:bg-[var(--skill-btn-bg)] text-[var(--skill-btn-text)]'
+                      }`}
+                      onClick={() => setSelectedCollection(c)}
+                    >
+                      {c}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
 
-        <div className="rounded-xl border border-[var(--input-bar-border)] bg-white p-6 space-y-6">
-          <section>
-            <h3 className="text-sm font-medium text-[var(--skill-btn-text)] mb-3">模块介绍</h3>
-            <ul className="space-y-2 text-sm text-[var(--input-placeholder)]">
-              <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-0.5">•</span>
-                <span><strong className="text-[var(--skill-btn-text)]">Vectra + Xenova</strong>：Vectra 向量存储 + Xenova/all-MiniLM-L6-v2 本地嵌入模型，零 API 依赖</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-0.5">•</span>
-                <span><strong className="text-[var(--skill-btn-text)]">独立存储目录</strong>：向量数据存储在 <code className="px-1.5 py-0.5 rounded bg-gray-100 text-xs">backend/data/vectra/</code> 目录下，与其它数据隔离</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-0.5">•</span>
-                <span><strong className="text-[var(--skill-btn-text)]">本地运行</strong>：纯本地运行，无需网络或独立服务，零配置启动</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-indigo-500 mt-0.5">•</span>
-                <span><strong className="text-[var(--skill-btn-text)]">RAG 支持</strong>：支持语义检索、检索增强生成（RAG）、推荐系统等相似度工作流</span>
-              </li>
-            </ul>
-          </section>
-
-          <section>
-            <h3 className="text-sm font-medium text-[var(--skill-btn-text)] mb-3">后续规划</h3>
-            <p className="text-sm text-[var(--input-placeholder)]">
-              记忆的写入、查询、管理等功能将在后续版本中逐步完善。
-            </p>
-          </section>
+        {/* 右侧：文档列表 + 搜索 */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {selectedCollection ? (
+            <>
+              <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-b border-[var(--input-bar-border)]">
+                <input
+                  type="text"
+                  placeholder="输入关键词进行语义搜索..."
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-[var(--input-bar-border)] text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                />
+                <button
+                  type="button"
+                  className="px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-sm hover:bg-indigo-600 disabled:opacity-50"
+                  onClick={handleSearch}
+                  disabled={searching || !searchText.trim()}
+                >
+                  {searching ? '搜索中...' : '搜索'}
+                </button>
+                {searchResults != null && (
+                  <button
+                    type="button"
+                    className="px-2 py-1.5 text-xs text-[var(--input-placeholder)] hover:text-[var(--skill-btn-text)]"
+                    onClick={() => {
+                      setSearchResults(null);
+                      setSearchText('');
+                    }}
+                  >
+                    清除
+                  </button>
+                )}
+              </div>
+              <div className="flex-shrink-0 px-4 py-1 text-xs text-[var(--input-placeholder)]">
+                {stats?.items != null && (
+                  <span>
+                    {isSearchMode
+                      ? `语义搜索结果：${displayList.length} 条`
+                      : `共 ${stats.items} 条`}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto px-4 py-3">
+                {loadingItems ? (
+                  <div className="text-sm text-[var(--input-placeholder)]">加载中...</div>
+                ) : displayList.length === 0 ? (
+                  <div className="text-sm text-[var(--input-placeholder)] py-8">
+                    {isSearchMode ? '无匹配结果' : '该数据集暂无文档'}
+                  </div>
+                ) : (
+                  <ul className="space-y-2">
+                    {displayList.map((item) => {
+                      const id = item?.id;
+                      const meta = item?.metadata || {};
+                      const text = meta.text || meta.content || id;
+                      const score = item?.score;
+                      return (
+                        <li
+                          key={id}
+                          className="group flex items-start gap-2 p-3 rounded-xl border border-[var(--input-bar-border)] hover:bg-[var(--skill-btn-bg)]"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-[var(--skill-btn-text)] whitespace-pre-wrap break-words">
+                              {String(text).slice(0, 500)}
+                              {String(text).length > 500 && '...'}
+                            </p>
+                            {score != null && (
+                              <p className="text-xs text-[var(--input-placeholder)] mt-1">
+                                相似度: {(score * 100).toFixed(1)}%
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="flex-shrink-0 p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-100 text-red-500 text-xs"
+                            title="删除"
+                            onClick={() => handleDeleteItem(id)}
+                          >
+                            🗑
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-[var(--input-placeholder)] text-sm">
+              请从左侧选择一个向量数据集
+            </div>
+          )}
         </div>
       </div>
     </div>

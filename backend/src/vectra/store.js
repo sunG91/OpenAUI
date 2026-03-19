@@ -108,6 +108,21 @@ async function stats(collectionName) {
 }
 
 /**
+ * 列出集合内所有文档（id + metadata，不含向量）
+ */
+async function listItems(collectionName) {
+  const index = await getIndex(collectionName);
+  const items = await index.listItems();
+  return {
+    ok: true,
+    items: items.map((i) => ({
+      id: i.id,
+      metadata: i.metadata || {},
+    })),
+  };
+}
+
+/**
  * 检查 Vectra 是否可用（Node.js 包已安装）
  */
 async function checkAvailable() {
@@ -126,5 +141,6 @@ module.exports = {
   fetch,
   deleteById,
   stats,
+  listItems,
   checkAvailable,
 };
