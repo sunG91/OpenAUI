@@ -36,7 +36,9 @@ mountToolsRoutes(app);
 mountMcpRoutes(app);
 app.use('/api/skills', skillsRouter);
 const { mountCanvasRoutes } = require('./routes/canvas');
+const { mountMemoryStorageRoutes } = require('./routes/memoryStorage');
 mountCanvasRoutes(app);
+mountMemoryStorageRoutes(app);
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, clientTracking: true });

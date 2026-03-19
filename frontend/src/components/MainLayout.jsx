@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useWebSocketContext } from '../context/WebSocketContext';
-import { AIAvatar, MessageBubble, ChatInputBar, SuggestionChips, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, AuiPanel, ChangelogModal } from './ui';
+import { AIAvatar, MessageBubble, ChatInputBar, SuggestionChips, Sidebar, SettingsPanel, ModelTestPanel, SkillsPanel, ToolsPanel, McpPanel, SkillsLibraryPanel, AuiPanel, MemoryStoragePanel, ChangelogModal } from './ui';
 import { getVoiceSettings, sttFromAudioBlob, ttsFromText } from '../api/client';
 import { stripEmojisForSpeech } from '../utils/speechText';
 
@@ -302,7 +302,9 @@ export function MainLayout() {
         </header>
 
         <main className="flex-1 flex flex-col items-center overflow-hidden bg-white">
-          {sidebarActive === 'history' ? (
+          {sidebarActive === 'memory-storage' ? (
+            <MemoryStoragePanel />
+          ) : sidebarActive === 'history' ? (
             <div className="flex-1 w-full flex flex-col items-center justify-center px-4">
               <div className="max-w-sm w-full rounded-2xl border-2 border-dashed border-[var(--input-bar-border)] bg-[#fafafa] p-10 text-center">
                 <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-100 text-amber-600 mb-4">

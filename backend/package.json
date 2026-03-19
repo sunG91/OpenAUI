@@ -28,6 +28,7 @@
     "robotjs": "^0.7.0",
     "screenshot-desktop": "^1.15.3",
     "sharp": "^0.33.5",
+    "vectra": "^0.12.3",
     "ws": "^8.18.0",
     "yaml": "^2.4.0"
   },

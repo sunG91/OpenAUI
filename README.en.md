@@ -30,6 +30,32 @@ Key capabilities:
 
 ## Quick Start
 
+### One-command install (recommended)
+
+From the project root, install frontend, backend, Playwright, optional Python deps, and vision models in one go:
+
+```bash
+npm run install-all
+```
+
+Or run directly:
+
+```bash
+node scripts/install-all.js
+```
+
+| Option | Description |
+|--------|-------------|
+| `--skip-playwright` | Skip Playwright Chromium |
+| `--skip-python` | Skip Python deps (vosk/zvec/ultralytics) |
+| `--skip-vision` | Skip vision model download |
+| `--vision-only` | Download vision models only |
+| `--help` | Show help |
+
+Works on Windows, Linux, and macOS.
+
+> **Note**: Memory storage uses Vectra (Node.js native, no Python). ultralytics (vision model conversion) requires Python.
+
 ### Option 1: Electron desktop app (recommended)
 
 Double‑click **`启动 Open AUI.bat`** to start everything with one click, or run manually:
