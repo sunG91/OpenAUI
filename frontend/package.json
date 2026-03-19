@@ -13,10 +13,10 @@
     "_install-backend": "cd ../backend && npm install --omit=dev && cd ../frontend",
     "gen:icon": "node scripts/generate-icon.js",
     "electron:dev": "node scripts/kill-ports.js && npm run gen:icon && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && node scripts/ensure-icon-256.js && node scripts/prepare-package.js && npm run _install-backend && electron-builder",
+    "electron:build": "vite build && node scripts/ensure-icon-256.js && node scripts/prepare-package.js && node scripts/prepare-package-data.js && npm run _install-backend && electron-builder && node scripts/restore-package-data.js",
     "embed-icon": "node scripts/embed-icon.js",
     "electron:build:portable": "npm run electron:build -- --win portable",
-    "pack": "vite build && node scripts/prepare-package.js && npm run _install-backend && electron-builder --dir"
+    "pack": "vite build && node scripts/prepare-package.js && node scripts/prepare-package-data.js && npm run _install-backend && electron-builder --dir && node scripts/restore-package-data.js"
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",
@@ -64,7 +64,10 @@
         "from": "../backend",
         "to": "backend",
         "filter": [
-          "**/*"
+          "**/*",
+          "!data/vectra/**",
+          "!data/media/**",
+          "!data/tmp/**"
         ]
       },
       {
