@@ -148,6 +148,7 @@ export function MainLayout() {
 
   useEffect(() => {
     if (
+      sidebarActive === 'chat' &&
       lastMessage?.type === 'echo' &&
       awaitingAiResponseRef.current &&
       (lastMessage?.content != null || lastMessage?.reasoning_content != null)
@@ -221,7 +222,7 @@ export function MainLayout() {
         })();
       }
     }
-  }, [lastMessage, mode]);
+  }, [lastMessage, mode, sidebarActive]);
 
   useEffect(() => scrollToBottom(), [messages]);
 
@@ -406,6 +407,10 @@ export function MainLayout() {
     setMessages(session.messages || []);
     setCurrentSessionId(session.id);
     setSidebarActive('chat');
+    // 重置 WebSocket 相关 ref，避免加载历史后误处理旧的 echo 导致重复消息
+    awaitingAiResponseRef.current = false;
+    streamingAssistantIdRef.current = null;
+    lastProcessedEchoRef.current = null;
     try {
       window.localStorage.setItem('openaui_sidebar_active', 'chat');
     } catch {}

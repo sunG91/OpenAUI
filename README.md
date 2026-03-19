@@ -103,7 +103,7 @@ npm install
 npm run electron:build  # 构建并生成 release/win-unpacked/Open AUI.exe
 ```
 
-打包完成后，在 `frontend/release/win-unpacked/` 目录下运行 **Open AUI.exe** 即可，前后端已合并，无需单独安装 Node.js。
+打包完成后，在项目根目录的 `release/win-unpacked/` 下运行 **Open AUI.exe** 即可，前后端已合并，无需单独安装 Node.js。整个 `release/` 目录可直接打包发给他人使用。
 
 ![打包运行截图 v0.1.7](./images/mdimg/参考图0.1.7.png)
 

@@ -108,6 +108,7 @@ backend/whisper/
 backend/vosk/model/
 
 # --- Packaging / archives ---
+/release/
 *.zip
 *.tar
 *.tar.gz

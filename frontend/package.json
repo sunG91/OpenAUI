@@ -4,6 +4,7 @@
   "private": true,
   "description": "Open AUI Electron 桌面应用",
   "license": "Apache-2.0",
+  "author": "Open AUI",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -13,10 +14,10 @@
     "_install-backend": "cd ../backend && npm install --omit=dev && cd ../frontend",
     "gen:icon": "node scripts/generate-icon.js",
     "electron:dev": "node scripts/kill-ports.js && npm run gen:icon && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && node scripts/ensure-icon-256.js && node scripts/prepare-package.js && node scripts/prepare-package-data.js && npm run _install-backend && electron-builder && node scripts/restore-package-data.js",
+    "electron:build": "vite build && node scripts/ensure-icon-256.js && node scripts/prepare-package.js && npm run _install-backend && node scripts/electron-build-with-restore.js",
     "embed-icon": "node scripts/embed-icon.js",
     "electron:build:portable": "npm run electron:build -- --win portable",
-    "pack": "vite build && node scripts/prepare-package.js && node scripts/prepare-package-data.js && npm run _install-backend && electron-builder --dir && node scripts/restore-package-data.js"
+    "pack": "vite build && node scripts/ensure-icon-256.js && node scripts/prepare-package.js && npm run _install-backend && node scripts/electron-build-with-restore.js -- --dir"
   },
   "dependencies": {
     "@nut-tree/nut-js": "^4.2.0",
@@ -35,6 +36,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
     "ico-to-png": "^0.2.2",
@@ -42,6 +44,7 @@
     "pngjs": "^7.0.0",
     "postcss": "^8.4.49",
     "rcedit": "^5.0.2",
+    "resedit": "^3.0.2",
     "tailwindcss": "^3.4.16",
     "vite": "^6.0.5",
     "wait-on": "^8.0.1"
@@ -51,7 +54,7 @@
     "productName": "Open AUI",
     "directories": {
       "buildResources": "build",
-      "output": "release"
+      "output": "../release"
     },
     "files": [
       "dist-app/**",
@@ -76,6 +79,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "dist-app/images/icon",
+        "to": "icon",
+        "filter": [
+          "*.ico"
+        ]
       }
     ],
     "win": {
@@ -83,7 +93,8 @@
       "target": [
         "dir"
       ],
-      "sign": null
+      "sign": null,
+      "signAndEditExecutable": false
     }
   }
 }

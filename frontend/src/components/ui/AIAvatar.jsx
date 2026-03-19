@@ -28,7 +28,7 @@ export function AIAvatar({ showWaveform = false, compact = false }) {
           loading="lazy"
           decoding="async"
           onError={(e) => {
-            e.target.src = `${import.meta.env.BASE_URL}images/icon/icon.ico`;
+            e.target.src = `${import.meta.env.BASE_URL}images/icon/icon256.ico`;
           }}
         />
       </div>
