@@ -28,7 +28,7 @@ export function MemoryStoragePanel({ className = '' }) {
             <ul className="space-y-2 text-sm text-[var(--input-placeholder)]">
               <li className="flex items-start gap-2">
                 <span className="text-indigo-500 mt-0.5">•</span>
-                <span><strong className="text-[var(--skill-btn-text)]">Vectra 对接</strong>：Node.js 原生本地向量数据库，零配置、无 Python 依赖</span>
+                <span><strong className="text-[var(--skill-btn-text)]">Vectra + Xenova</strong>：Vectra 向量存储 + Xenova/all-MiniLM-L6-v2 本地嵌入模型，零 API 依赖</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-indigo-500 mt-0.5">•</span>

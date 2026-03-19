@@ -1,5 +1,14 @@
 # 更新记录（Changelog）
 
+## 0.1.9（2026-03-19）
+
+- 新增：**记忆存储** 侧边栏新增「记忆存储」模块（Skills 库下方），基于 Vectra + Xenova 本地向量存储，向量数据存于 `backend/data/vectra/` 独立目录。
+- 新增：**向量嵌入** 对接 @xenova/transformers，默认 Xenova/all-MiniLM-L6-v2（384 维），国内默认使用 HF 镜像；支持 `insertText`、`queryByText` 文本级记忆。
+- 新增：**模型测试 - 向量模型** 工具模块中新增「向量模型」入口，可测试文本→向量嵌入，无需 API Key。
+- 新增：**一键安装** `npm run install-all` 支持 `--skip-embeddings`，自动预下载 Embeddings 模型；国内默认 `HF_ENDPOINT=https://hf-mirror.com`。
+- 优化：**侧边栏** 导航项超出时支持纵向滚动。
+- 优化：**install-all** 移除 zvec（Python），记忆存储改用 Node.js 原生 Vectra。
+
 ## 0.1.8（2026-03-18）
 
 - 新增：**AUI 模块** 侧边栏新增 AUI 入口（历史下方），含「AUI 介绍」「架构选择」两个 Tab。

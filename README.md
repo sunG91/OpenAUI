@@ -55,8 +55,9 @@ node scripts/install-all.js
 | 选项 | 说明 |
 |------|------|
 | `--skip-playwright` | 跳过 Playwright Chromium |
-| `--skip-python` | 跳过 Python 依赖（vosk/zvec/ultralytics） |
+| `--skip-python` | 跳过 Python 依赖（vosk/ultralytics） |
 | `--skip-vision` | 跳过视觉模型下载 |
+| `--skip-embeddings` | 跳过 Embeddings 模型预下载 |
 | `--vision-only` | 仅下载视觉模型 |
 | `--help` | 显示帮助 |
 

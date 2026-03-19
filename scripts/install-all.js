@@ -11,6 +11,7 @@
  * - Playwright Chromium（浏览器自动化）
  * - Python 可选依赖：vosk, ultralytics（记忆存储已改用 Vectra，无需 zvec）
  * - 视觉模型下载（可选）
+ * - Embeddings 模型预下载（Xenova，默认 HF 镜像）
  */
 const { spawn } = require('child_process');
 const path = require('path');
@@ -78,6 +79,7 @@ function showHelp() {
   --skip-playwright  跳过 Playwright Chromium 安装
   --skip-python      跳过 Python 依赖（vosk/ultralytics）
   --skip-vision      跳过视觉模型下载
+  --skip-embeddings  跳过 Embeddings 模型预下载
   --vision-only      仅下载视觉模型
   --help             显示此帮助
 `);
@@ -92,7 +94,11 @@ async function main() {
   const skipPlaywright = args.includes('--skip-playwright');
   const skipPython = args.includes('--skip-python');
   const skipVision = args.includes('--skip-vision');
+  const skipEmbeddings = args.includes('--skip-embeddings');
   const visionOnly = args.includes('--vision-only');
+
+  // 国内默认使用 HF 镜像，供 Embeddings 模型下载
+  process.env.HF_ENDPOINT = process.env.HF_ENDPOINT || 'https://hf-mirror.com';
 
   console.log('\n=== Open AUI 一键依赖安装 ===\n');
   console.log('平台:', process.platform, process.arch);
@@ -171,9 +177,27 @@ async function main() {
       }
     }
 
-    // 5. 视觉模型（可选）
+    // 5. Embeddings 模型预下载（Xenova，使用 HF_ENDPOINT 镜像）
+    if (!skipEmbeddings && !visionOnly) {
+      console.log('>>> 5/6 预下载 Embeddings 模型（Xenova）...');
+      const embedScript = path.join(BACKEND, 'scripts', 'preload-embeddings.js');
+      if (fs.existsSync(embedScript)) {
+        try {
+          await run('node', [embedScript], BACKEND, 'Embeddings 预下载');
+          console.log('    Embeddings 模型完成\n');
+        } catch (e) {
+          console.log(`    Embeddings 跳过: ${e.message}\n`);
+        }
+      } else {
+        console.log('    跳过（无 preload-embeddings.js）\n');
+      }
+    } else if (skipEmbeddings && !visionOnly) {
+      console.log('>>> 5/6 跳过 Embeddings (--skip-embeddings)\n');
+    }
+
+    // 6. 视觉模型（可选）
     if (!skipVision && !visionOnly) {
-      console.log('>>> 5/5 下载视觉模型（可选）...');
+      console.log('>>> 6/6 下载视觉模型（可选）...');
       const dlScript = path.join(BACKEND, 'scripts', 'download-vision-models.js');
       if (fs.existsSync(dlScript)) {
         try {

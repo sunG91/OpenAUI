@@ -47,8 +47,9 @@ node scripts/install-all.js
 | Option | Description |
 |--------|-------------|
 | `--skip-playwright` | Skip Playwright Chromium |
-| `--skip-python` | Skip Python deps (vosk/zvec/ultralytics) |
+| `--skip-python` | Skip Python deps (vosk/ultralytics) |
 | `--skip-vision` | Skip vision model download |
+| `--skip-embeddings` | Skip Embeddings model pre-download |
 | `--vision-only` | Download vision models only |
 | `--help` | Show help |
 

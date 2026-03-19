@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { MODEL_VENDORS, VENDOR_MODELS } from '../../../data/modelVendors';
 import { getApiKeys, getBaiduOcrKeys } from '../../../api/client';
 import { TestDetailView } from './TestDetailView';
-import { BaiduOcrTestView, TesseractOcrTestView } from './OcrModules';
+import { BaiduOcrTestView, TesseractOcrTestView, EmbeddingsTestView } from './OcrModules';
 
 const iconVendor = (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -21,6 +21,7 @@ const iconOcr = (
 
 const BAIDU_OCR_ID = 'baidu_ocr';
 const TESSERACT_OCR_ID = 'tesseract_ocr';
+const EMBEDDINGS_ID = 'embeddings';
 
 export function ModelTestPanel({ className = '' }) {
   const [selectedVendorId, setSelectedVendorId] = useState(MODEL_VENDORS[0]?.id ?? null);
@@ -33,10 +34,10 @@ export function ModelTestPanel({ className = '' }) {
     getBaiduOcrKeys().then((r) => setBaiduOcrConfigured(r.configured)).catch(() => setBaiduOcrConfigured(false));
   }, []);
 
-  const isToolModule = selectedVendorId === BAIDU_OCR_ID || selectedVendorId === TESSERACT_OCR_ID;
+  const isToolModule = selectedVendorId === BAIDU_OCR_ID || selectedVendorId === TESSERACT_OCR_ID || selectedVendorId === EMBEDDINGS_ID;
   const models = selectedVendorId && !isToolModule ? (VENDOR_MODELS[selectedVendorId] ?? []) : [];
   const apiKeySet = selectedVendorId === BAIDU_OCR_ID ? baiduOcrConfigured : (selectedVendorId ? !!maskedKeys[selectedVendorId] : false);
-  const vendorName = selectedVendorId === BAIDU_OCR_ID ? '百度智能云 OCR' : (selectedVendorId === TESSERACT_OCR_ID ? '本地 OCR' : (MODEL_VENDORS.find((v) => v.id === selectedVendorId)?.name ?? ''));
+  const vendorName = selectedVendorId === BAIDU_OCR_ID ? '百度智能云 OCR' : (selectedVendorId === TESSERACT_OCR_ID ? '本地 OCR' : (selectedVendorId === EMBEDDINGS_ID ? '向量模型' : (MODEL_VENDORS.find((v) => v.id === selectedVendorId)?.name ?? '')));
 
   return (
     <div className={`flex-1 w-full flex overflow-hidden bg-white ${className}`}>
@@ -86,6 +87,19 @@ export function ModelTestPanel({ className = '' }) {
             {iconOcr}
             <span>本地 OCR</span>
           </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedVendorId(EMBEDDINGS_ID); setSelectedForTest(null); }}
+            className={`
+              flex items-center gap-2 px-3 py-2.5 rounded-lg text-left text-sm font-medium transition-colors duration-200
+              ${selectedVendorId === EMBEDDINGS_ID ? 'bg-blue-500 text-white' : 'text-[var(--skill-btn-text)] hover:bg-[var(--skill-btn-hover)]'}
+            `}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+            </svg>
+            <span>向量模型</span>
+          </button>
         </nav>
       </aside>
 
@@ -93,6 +107,8 @@ export function ModelTestPanel({ className = '' }) {
         <BaiduOcrTestView onBack={() => setSelectedVendorId(MODEL_VENDORS[0]?.id ?? null)} apiKeySet={baiduOcrConfigured} />
       ) : selectedVendorId === TESSERACT_OCR_ID ? (
         <TesseractOcrTestView onBack={() => setSelectedVendorId(MODEL_VENDORS[0]?.id ?? null)} />
+      ) : selectedVendorId === EMBEDDINGS_ID ? (
+        <EmbeddingsTestView onBack={() => setSelectedVendorId(MODEL_VENDORS[0]?.id ?? null)} />
       ) : selectedForTest ? (
         <TestDetailView
           vendorId={selectedForTest.vendorId}

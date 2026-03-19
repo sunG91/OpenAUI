@@ -103,8 +103,8 @@ export function Sidebar({ activeId = 'chat', onSelect, className = '' }) {
         ${className}
       `}
     >
-      <nav className="flex-1 flex flex-col py-3 gap-3">
-        <div className="mx-2 rounded-xl bg-white border border-[var(--input-bar-border)] p-1.5 shadow-sm">
+      <nav className="flex-1 flex flex-col py-3 gap-3 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="mx-2 rounded-xl bg-white border border-[var(--input-bar-border)] p-1.5 shadow-sm flex-shrink-0">
           <button
             type="button"
             onClick={() => onSelect?.('chat')}
@@ -131,7 +131,7 @@ export function Sidebar({ activeId = 'chat', onSelect, className = '' }) {
             <span className="text-[10px] text-[var(--input-placeholder)] whitespace-nowrap">新建</span>
           </button>
         </div>
-        <div className="flex flex-col gap-0.5 mx-2">
+        <div className="flex flex-col gap-0.5 mx-2 flex-shrink-0">
           {OTHER_ITEMS.map((item) => renderItem(item, true))}
         </div>
       </nav>

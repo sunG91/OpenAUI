@@ -1,6 +1,7 @@
 /**
  * Vectra 向量存储模块
  * 向量数据存储在 backend/data/vectra/ 独立目录下
+ * 整合 embeddings（Xenova）实现文本级记忆
  */
 const { VECTRA_DATA_DIR, ensureVectraDataDir, getCollectionPath } = require('./paths');
 const {
@@ -12,6 +13,7 @@ const {
   stats,
   checkAvailable,
 } = require('./store');
+const { insertText, queryByText, checkAvailable: memoryAvailable } = require('./memory');
 
 module.exports = {
   VECTRA_DATA_DIR,
@@ -24,4 +26,8 @@ module.exports = {
   deleteById,
   stats,
   checkAvailable,
+  // 文本级记忆（依赖 embeddings）
+  insertText,
+  queryByText,
+  memoryAvailable,
 };
