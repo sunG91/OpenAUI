@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 
 const MSG_AUTH_REQUIRED = 'auth_required';
 const MSG_AUTH_OK = 'auth_ok';
@@ -55,6 +56,7 @@ export function WebSocketProvider({ url, children }) {
   const [lastMessage, setLastMessage] = useState(null);
   const [rememberAuthKey, setRememberAuthKeyState] = useState(() => getRememberAuthKey());
   const wsRef = useRef(null);
+  const clearLastMessage = useCallback(() => setLastMessage(null), []);
   const lastAuthAttemptRef = useRef('');
   const autoAuthTriedRef = useRef(false);
 
@@ -94,7 +96,12 @@ export function WebSocketProvider({ url, children }) {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-        setLastMessage(msg);
+        // 流式 echo 需立即渲染，避免批处理导致中间帧丢失
+        if (msg.type === 'echo' && msg.streaming === true) {
+          flushSync(() => setLastMessage(msg));
+        } else {
+          setLastMessage(msg);
+        }
         if (msg.type === 'auth_ok' || msg.type === 'auth_fail' || msg.type === 'auth_required') {
           console.log('[WebSocket] 收到:', msg.type, msg.message || '');
         }
@@ -170,6 +177,7 @@ export function WebSocketProvider({ url, children }) {
     requireAuth,
     error,
     lastMessage,
+    clearLastMessage,
     send,
     authenticate,
     reconnect: connect,

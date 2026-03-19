@@ -1,6 +1,7 @@
 /**
  * Open AUI - Electron 主进程
  * 启动时同时启动后端 WebSocket 服务
+ * 打包后若缺少 Node，会显示下载界面并自动下载
  */
 const { app, BrowserWindow, Menu, session, desktopCapturer, ipcMain } = require('electron');
 // 开发时关闭控制台安全警告（打包后不会出现该警告）
@@ -11,9 +12,11 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const guiNode = require('./gui-node');
+const { extractNode } = require('./download-node');
 
 let backendProcess = null;
 let mainWindow = null;
+let resolvedNodePath = null; // 启动后端时使用的 node 路径
 
 // 开发模式检测
 const isDev = !app.isPackaged;
@@ -22,8 +25,18 @@ const isDev = !app.isPackaged;
 const backendPath = app.isPackaged
   ? path.join(process.resourcesPath, 'backend')
   : path.join(__dirname, '../../backend');
-const backendDataDir = path.join(backendPath, 'data');
+// 打包后：使用 resources/backend/data（与 exe 同目录，便携），绝不使用项目 backend/data
+// 开发时：使用项目 backend/data
+const backendDataDir = app.isPackaged
+  ? path.join(process.resourcesPath, 'backend', 'data')
+  : path.join(backendPath, 'data');
 const backendPortFile = path.join(backendDataDir, 'port.txt');
+
+function getBundledZipPath() {
+  if (!app.isPackaged || process.platform !== 'win32') return null;
+  const p = path.join(process.resourcesPath, 'node-portable.zip');
+  return fs.existsSync(p) ? p : null;
+}
 
 function setupAppMenu() {
   // 精简中文菜单：只保留主要功能，去掉无关项
@@ -88,16 +101,10 @@ function readBackendPort(callback) {
   }, interval);
 }
 
-// 启动后端（打包后用捆绑的 Node，开发时用系统 Node）
+// 启动后端（使用 resolvedNodePath 或系统 Node）
 function startBackend() {
   const scriptPath = path.join(backendPath, 'src/index.js');
-  let nodeCommand;
-  if (app.isPackaged && process.platform === 'win32') {
-    const bundledNode = path.join(process.resourcesPath, 'node', 'node.exe');
-    nodeCommand = fs.existsSync(bundledNode) ? bundledNode : 'node.exe';
-  } else {
-    nodeCommand = process.platform === 'win32' ? 'node.exe' : 'node';
-  }
+  const nodeCommand = resolvedNodePath || (process.platform === 'win32' ? 'node.exe' : 'node');
 
   // 避免读取到上一次运行遗留的端口文件，导致前端拿到错误端口（例如 9529）
   try {
@@ -107,7 +114,7 @@ function startBackend() {
   backendProcess = spawn(nodeCommand, [scriptPath], {
     cwd: backendPath,
     stdio: 'inherit',
-    env: { ...process.env },
+    env: { ...process.env, OPENAUI_DATA_DIR: backendDataDir },
     // Windows 下启用 shell 容易导致中文路径/编码被 cmd 误解析成“不是内部或外部命令”
     shell: false,
     windowsHide: true,
@@ -171,6 +178,7 @@ function createWindow(backendPort = '9527') {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.focus();
   });
 
   mainWindow.on('closed', () => {
@@ -178,9 +186,72 @@ function createWindow(backendPort = '9527') {
   });
 }
 
+function createNodeDownloadWindow() {
+  const resPath = process.resourcesPath || app.getAppPath();
+  const iconPath = path.join(resPath, 'icon', 'icon256.ico');
+  const win = new BrowserWindow({
+    width: 480,
+    height: 320,
+    minWidth: 400,
+    minHeight: 260,
+    resizable: true,
+    frame: true,
+    show: false,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'node-download-preload.js'),
+    },
+  });
+  win.setMenuBarVisibility(false);
+  win.loadFile(path.join(__dirname, 'node-download.html'));
+  win.once('ready-to-show', () => win.show());
+  return win;
+}
+
+async function ensureNodeAndStart() {
+  if (!app.isPackaged) {
+    resolvedNodePath = process.platform === 'win32' ? 'node.exe' : 'node';
+    startBackend();
+    readBackendPort((_err, port) => createWindow(port));
+    return;
+  }
+  if (process.platform === 'win32') {
+    const userNode = path.join(app.getPath('userData'), 'node-portable', 'node.exe');
+    if (fs.existsSync(userNode)) {
+      resolvedNodePath = userNode;
+      startBackend();
+      readBackendPort((_err, port) => createWindow(port));
+      return;
+    }
+    if (!getBundledZipPath()) {
+      console.error('[Open AUI] 未找到 node-portable.zip');
+      app.quit();
+      return;
+    }
+    const setupWin = createNodeDownloadWindow();
+    try {
+      resolvedNodePath = await extractNode(setupWin);
+      startBackend();
+      readBackendPort((_err, port) => {
+        createWindow(port);
+        if (!setupWin.isDestroyed()) setupWin.close();
+      });
+    } catch (e) {
+      console.error('[Open AUI] 解压运行环境失败:', e);
+      setupWin.webContents.send('node-download-error', e?.message || String(e));
+      setupWin.on('closed', () => app.quit());
+    }
+    return;
+  }
+  resolvedNodePath = process.platform === 'darwin' ? 'node' : 'node';
+  startBackend();
+  readBackendPort((_err, port) => createWindow(port));
+}
+
 app.whenReady().then(() => {
   setupAppMenu();
-  startBackend();
   // 让 getDisplayMedia() 在渲染进程可用：用 desktopCapturer 提供屏幕源，截屏必须支持
   try {
     session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
@@ -196,7 +267,6 @@ app.whenReady().then(() => {
   } catch (e) {
     console.warn('[Open AUI] setDisplayMediaRequestHandler 不可用，截屏将依赖 preload 后备:', e?.message);
   }
-  // GUI 节点执行：IPC 处理（当 tools.guiExecutor === 'node' 时由主进程执行 GUI）
   ipcMain.handle('gui:setProvider', (_, p) => guiNode.setProvider(p));
   ipcMain.handle('gui:mouseMove', (_, x, y) => guiNode.mouseMove(x, y));
   ipcMain.handle('gui:mouseClick', (_, opts) => guiNode.mouseClick(opts));
@@ -204,9 +274,7 @@ app.whenReady().then(() => {
   ipcMain.handle('gui:screenCapture', () => guiNode.screenCapture());
   ipcMain.handle('gui:screenSize', () => guiNode.screenSize());
 
-  readBackendPort((_err, port) => {
-    createWindow(port);
-  });
+  ensureNodeAndStart();
 
   app.on('window-all-closed', () => {
     stopBackend();

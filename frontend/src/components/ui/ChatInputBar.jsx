@@ -68,6 +68,11 @@ const iconVideo = (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
   </svg>
 );
+const iconPause = (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 const iconMore = (
   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zm0 10a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" />
@@ -99,6 +104,8 @@ export function ChatInputBar({
   voiceActive,
   onVoiceToggle,
   disabled,
+  isStreaming = false,
+  onPause,
   skills = DEFAULT_SKILLS,
   showPlus = true,
   className = '',
@@ -110,9 +117,9 @@ export function ChatInputBar({
   const morePopupRef = useRef(null);
   const [activeSkillId, setActiveSkillId] = useState(null);
 
-  // quickOnly 时仅显示快速且不可切换；否则展示在技能页已开启的技能项
+  // quickOnly 时显示快速 + MCP（对话中可按需解锁 MCP）；否则展示在技能页已开启的技能项
   const skillsWithoutMore = quickOnly
-    ? skills.filter((s) => s.id === 'quick')
+    ? skills.filter((s) => s.id === 'quick' || s.id === 'mcp')
     : skills.filter((s) => s.id !== 'more' && getSkillEnabled(s.id));
   const visibleSkills = skillsWithoutMore.slice(0, MAX_VISIBLE_SKILLS);
   const moreSkills = quickOnly ? [] : skillsWithoutMore.slice(MAX_VISIBLE_SKILLS);
@@ -120,7 +127,8 @@ export function ChatInputBar({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSend?.();
+      if (isStreaming) onPause?.();
+      else onSend?.();
     }
   };
 
@@ -217,28 +225,35 @@ export function ChatInputBar({
                 </svg>
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => onSend?.()}
-              disabled={disabled || !(value || '').trim()}
-              title="发送"
-              className="ml-1 flex items-center justify-center rounded-full w-8 h-8 text-[var(--input-placeholder)] hover:bg-[var(--skill-btn-hover)] hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[var(--input-placeholder)] transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={() => onPause?.()}
+                disabled={disabled}
+                title="暂停 AI 输出"
+                className="ml-1 flex items-center justify-center rounded-full w-8 h-8 text-amber-600 hover:bg-amber-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {iconPause}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onSend?.()}
+                disabled={disabled || !(value || '').trim()}
+                title="发送"
+                className="ml-1 flex items-center justify-center rounded-full w-8 h-8 text-[var(--input-placeholder)] hover:bg-[var(--skill-btn-hover)] hover:text-blue-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-[var(--input-placeholder)] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 第二行：加号 + 最多 3 个标签 + 更多（quickOnly 时仅显示快速且不可切换） */}
+      {/* 第二行：加号 + 最多 3 个标签 + 更多 */}
       <div className="px-3 pb-3 pt-0 flex items-center gap-1.5 flex-wrap">
-        {quickOnly && (
-          <span className="text-[10px] text-[var(--input-placeholder)]" title="可修改源码扩展更多技能">
-            暂时只支持快速，或二开扩展
-          </span>
-        )}
         {showPlus && !quickOnly && (
           <button
             type="button"
@@ -257,16 +272,12 @@ export function ChatInputBar({
             tag={skill.tag}
             tagType={skill.tagType}
             active={skill.id === 'quick' ? (quickOnly || quickMode) : skill.id === 'mcp' ? mcpMode : skill.id === 'sui' ? suiMode : activeSkillId === skill.id}
-            onClick={
-              quickOnly
-                ? undefined
-                : () => {
-                    setActiveSkillId((prev) => (prev === skill.id ? null : skill.id));
-                    onSkillSelect?.(skill.id);
-                  }
-            }
-            disabled={quickOnly && skill.id !== 'quick'}
-            className={quickOnly ? 'cursor-default' : ''}
+            onClick={() => {
+              setActiveSkillId((prev) => (prev === skill.id ? null : skill.id));
+              onSkillSelect?.(skill.id);
+            }}
+            disabled={false}
+            className=""
           />
         ))}
         {moreSkills.length > 0 && (

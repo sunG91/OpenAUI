@@ -55,3 +55,32 @@
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* 聊天区域：无滚动时不展示滚动条，悬停或滚动时才显示 */
+.chat-scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.chat-scroll-area:hover,
+.chat-scroll-area:focus-within,
+.chat-scroll-area:active {
+  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+}
+.chat-scroll-area::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll-area::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+.chat-scroll-area:hover::-webkit-scrollbar-thumb,
+.chat-scroll-area:focus-within::-webkit-scrollbar-thumb,
+.chat-scroll-area:active::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.45);
+}
+.chat-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.75);
+}

@@ -46,7 +46,8 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server, clientTracking: true });
 wss.on('connection', createConnectionHandler({ requireKey, allowedKeys }));
 
-const dataDir = path.join(__dirname, '../data');
+const { getDataDir } = require('./data-path');
+const dataDir = getDataDir();
 const portsToTry = [port, 9528, 9529];
 let portIndex = 0;
 

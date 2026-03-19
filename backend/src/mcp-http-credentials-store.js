@@ -1,6 +1,6 @@
 /**
- * MCP HTTP 凭据存储（仅本地）：
- * backend/src/data/mcp-http-credentials.json
+ * MCP HTTP 凭据存储（仅本地）
+ * 打包后使用用户可写目录
  * 结构示例：
  * {
  *   "aliyun-bailian": {
@@ -10,12 +10,13 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { getDataDir } = require('./data-path');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const FILE_PATH = path.join(DATA_DIR, 'mcp-http-credentials.json');
+const FILE_PATH = path.join(getDataDir(), 'mcp-http-credentials.json');
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = path.dirname(FILE_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function readAll() {

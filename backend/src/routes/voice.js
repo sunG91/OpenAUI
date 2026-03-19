@@ -17,8 +17,9 @@ const { synthesizeWithSapi, listSapiVoices } = require('../voice/tts/sapi');
 const { synthesizeWithPiper, listPiperVoices } = require('../voice/tts/piper');
 const { synthesizeWithGptSoVits, listGptSoVitsVoices } = require('../voice/tts/gptsovits');
 const { synthesizeWithEdgeTts, listEdgeZhVoices } = require('../voice/tts/edge');
+const { getDataDir } = require('../data-path');
 
-const DATA_DIR = path.join(__dirname, '../../data');
+const DATA_DIR = getDataDir();
 const MEDIA_DIR = path.join(DATA_DIR, 'media');
 const RECORDINGS_DIR = path.join(MEDIA_DIR, 'recordings');
 const TTS_DIR = path.join(MEDIA_DIR, 'tts');

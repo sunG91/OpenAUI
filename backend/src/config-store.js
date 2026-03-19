@@ -1,12 +1,12 @@
 /**
  * 统一配置存储 - 本地数据库式
- * 所有配置（MCP、Skills、SkillsLibrary、模型、语音等）集中到 backend/data/config.json
- * 用户每次修改都通过 config 操作
+ * 所有配置集中到 data/config.json，打包后使用用户可写目录
  */
 const fs = require('fs');
 const path = require('path');
+const { getDataDir } = require('./data-path');
 
-const DATA_DIR = path.join(__dirname, '../data');
+const DATA_DIR = getDataDir();
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
 /** 各模块默认配置 */
@@ -55,6 +55,9 @@ const SECTION_DEFAULTS = {
   },
   aui: {
     architectureId: 'tianshu', // 当前选中的 AUI 架构 id
+  },
+  uiState: {
+    lastSelectedSessionId: null, // 上次选中的聊天会话 id，刷新后恢复
   },
 };
 

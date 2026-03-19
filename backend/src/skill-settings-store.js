@@ -25,8 +25,19 @@ function getQuickFixedModel() {
   return vendorId && modelId ? { vendorId, modelId } : null;
 }
 
+/** 对话中启用 MCP 时使用的服务 ID 列表；若未配置则用所有已启用的 MCP 服务 */
+function getMcpEnabledServerIdsForChat() {
+  const { readSection } = require('./config-store');
+  const skillMcp = (readSection('skill') || {}).mcp || {};
+  const ids = Array.isArray(skillMcp.enabledServerIds) ? skillMcp.enabledServerIds.filter((id) => id && String(id).trim()) : [];
+  if (ids.length > 0) return ids;
+  const mcpServers = (readSection('mcp') || {}).servers || [];
+  return mcpServers.filter((s) => s && s.id && s.enabled !== false).map((s) => String(s.id).trim());
+}
+
 module.exports = {
   readSkillSettings,
   writeSkillSettings,
   getQuickFixedModel,
+  getMcpEnabledServerIdsForChat,
 };

@@ -1,6 +1,6 @@
 {
   "name": "open-aui",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "private": true,
   "description": "Open AUI Electron 桌面应用",
   "license": "Apache-2.0",
@@ -26,6 +26,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
+    "remark-cjk-friendly": "^2.0.1",
     "remark-gfm": "^4.0.1",
     "robotjs": "^0.7.0",
     "screenshot-desktop": "^1.15.3",
@@ -74,11 +75,8 @@
         ]
       },
       {
-        "from": "build/node",
-        "to": "node",
-        "filter": [
-          "**/*"
-        ]
+        "from": "build/node-portable.zip",
+        "to": "node-portable.zip"
       },
       {
         "from": "dist-app/images/icon",

@@ -4,11 +4,10 @@
 const fs = require('fs');
 const path = require('path');
 const { readSection, writeSection, SECTION_DEFAULTS } = require('./config-store');
+const { getDataDir } = require('./data-path');
 
 const BACKEND_ROOT = path.join(__dirname, '..');
-const DATA_DIR = path.join(BACKEND_ROOT, 'data');
-
-const DEFAULT_SKILLS_FOLDER = path.join(DATA_DIR, 'skills');
+const DEFAULT_SKILLS_FOLDER = path.join(getDataDir(), 'skills');
 const DEFAULT_SKILLS_FOLDER_REL = 'data/skills';
 
 function readSkillsLibraryConfig() {
@@ -33,13 +32,13 @@ function writeSkillsLibraryConfig(updates) {
   return next.skillsLibrary;
 }
 
-/** 将配置的路径解析为绝对路径：相对路径基于 backend 根目录 */
+/** 将配置的路径解析为绝对路径：相对路径基于 data 目录 */
 function resolveSkillsFolder(folder) {
   if (!folder || typeof folder !== 'string') return DEFAULT_SKILLS_FOLDER;
   const trimmed = folder.trim();
   if (!trimmed) return DEFAULT_SKILLS_FOLDER;
   if (path.isAbsolute(trimmed) || /^[A-Za-z]:[\\/]/.test(trimmed)) return trimmed;
-  return path.join(BACKEND_ROOT, trimmed);
+  return path.join(getDataDir(), trimmed.replace(/^data[/\\]/, ''));
 }
 
 /** 确保默认 Skills 文件夹存在 */

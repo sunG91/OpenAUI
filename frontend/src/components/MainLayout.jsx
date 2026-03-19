@@ -9,6 +9,8 @@ import {
   deleteChatSession,
   getChatSession,
   rollbackChatMessage,
+  getLastSelectedSessionId,
+  saveLastSelectedSessionId,
 } from '../api/chatHistory';
 import { stripEmojisForSpeech } from '../utils/speechText';
 
@@ -43,10 +45,14 @@ export function MainLayout() {
   const streamingAssistantIdRef = useRef(null);
   const [quickMode, setQuickMode] = useState(true);
   const [mcpMode, setMcpMode] = useState(false);
+  const [mcpDetail, setMcpDetail] = useState(null); // { call, mcpCalls, messageId, sessionId }
+  const [mcpPanelClosing, setMcpPanelClosing] = useState(false); // 关闭动画中
+  const [mcpTabType, setMcpTabType] = useState('mcp'); // 第一层：MCP | Agent
+  const [mcpTabIndex, setMcpTabIndex] = useState(0); // 第二层：选中的第几个
   const [suiMode, setSuiMode] = useState(false);
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
-  const { send, lastMessage, authenticated } = useWebSocketContext();
+  const { send, lastMessage, clearLastMessage, authenticated } = useWebSocketContext();
   const appVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
   const appLicense = typeof __APP_LICENSE__ !== 'undefined' ? __APP_LICENSE__ : '未设置';
   const companyName = '盐城小寒科技有限责任公司';
@@ -67,9 +73,11 @@ export function MainLayout() {
         window.localStorage.removeItem(STORAGE_LAST_SESSION);
       }
     } catch {}
+    // 持久化到 config.json，刷新后恢复选中状态
+    saveLastSelectedSessionId(currentSessionId).catch(() => {});
   }, [currentSessionId]);
 
-  // 刷新页面时加载上次的对话历史，并回到聊天视图
+  // 刷新页面时加载上次的对话历史，并回到聊天视图（优先从 config.json 读取，其次 localStorage）
   useEffect(() => {
     let cancelled = false;
     const timeout = setTimeout(() => {
@@ -77,7 +85,15 @@ export function MainLayout() {
     }, 8000);
     (async () => {
       try {
-        const lastId = window.localStorage.getItem(STORAGE_LAST_SESSION);
+        let lastId = null;
+        try {
+          lastId = await getLastSelectedSessionId();
+        } catch {}
+        if (!lastId) {
+          try {
+            lastId = window.localStorage.getItem(STORAGE_LAST_SESSION);
+          } catch {}
+        }
         if (!lastId) {
           setRestoringSession(false);
           clearTimeout(timeout);
@@ -95,6 +111,7 @@ export function MainLayout() {
       } catch {
         try {
           window.localStorage.removeItem(STORAGE_LAST_SESSION);
+          saveLastSelectedSessionId(null).catch(() => {});
         } catch {}
       } finally {
         if (!cancelled) {
@@ -110,6 +127,7 @@ export function MainLayout() {
   }, []);
 
   const handleSidebarSelect = (id) => {
+    handleCloseContextMenu();
     if (id === 'new') {
       setMessages([]);
       setCurrentSessionId(null);
@@ -131,9 +149,7 @@ export function MainLayout() {
   };
 
   const handleCloseContextMenu = () => {
-    if (contextMenu.open) {
-      setContextMenu((prev) => ({ ...prev, open: false }));
-    }
+    setContextMenu((prev) => ({ ...prev, open: false }));
   };
 
   const handleRefreshCurrentView = () => {
@@ -151,16 +167,20 @@ export function MainLayout() {
       sidebarActive === 'chat' &&
       lastMessage?.type === 'echo' &&
       awaitingAiResponseRef.current &&
-      (lastMessage?.content != null || lastMessage?.reasoning_content != null)
+      (lastMessage?.content != null || lastMessage?.reasoning_content != null || Array.isArray(lastMessage?.mcp_calls))
     ) {
       const reasoning = lastMessage.reasoning_content ?? '';
       const text = lastMessage.content ?? '';
       const content = reasoning ? `思考：${reasoning}\n\n回答：${text}` : text;
       const isStreaming = lastMessage.streaming === true;
+      const mcpStatus = lastMessage.status === 'mcp_retrieving' ? 'mcp_retrieving' : lastMessage.status === 'mcp_done' ? 'mcp_done' : lastMessage.status === 'mcp_summarizing' ? 'mcp_summarizing' : undefined;
+      const mcpToolName = lastMessage.mcp_tool_name || undefined;
+      const mcpCalls = Array.isArray(lastMessage.mcp_calls) ? lastMessage.mcp_calls : undefined;
       const fullContent = content || '（无内容）';
 
-      const echoSig = `${text}|${reasoning}|${isStreaming}|${lastMessage?.timestamp ?? 0}`;
-      if (lastProcessedEchoRef.current === echoSig) return;
+      const echoSig = `${text}|${reasoning}|${isStreaming}|${mcpStatus ?? ''}|${mcpToolName ?? ''}|${JSON.stringify(mcpCalls || [])}|${lastMessage?.timestamp ?? 0}`;
+      // 流式时始终处理，确保每帧内容都能更新；非流式才做去重
+      if (!isStreaming && lastProcessedEchoRef.current === echoSig) return;
       lastProcessedEchoRef.current = echoSig;
       if (!isStreaming) awaitingAiResponseRef.current = false;
 
@@ -170,7 +190,7 @@ export function MainLayout() {
         const target = existingId ? prev.find((m) => m.id === existingId) : null;
 
         if (target && (target.streaming || isStreaming)) {
-          const updated = { ...target, content: fullContent, streaming: isStreaming };
+          const updated = { ...target, content: fullContent, streaming: isStreaming, status: mcpStatus, mcpToolName: mcpToolName ?? target.mcpToolName, mcpCalls: mcpCalls ?? target.mcpCalls };
           if (!isStreaming) streamingAssistantIdRef.current = null;
           if (!isStreaming && mode === 'chat' && sessionIdRef.current) {
             appendChatMessage(sessionIdRef.current, { ...updated, id: target.id }).catch(() => {});
@@ -178,7 +198,7 @@ export function MainLayout() {
           return prev.map((m) => (m.id === target.id ? updated : m));
         }
         if (last?.role === 'assistant' && (last.streaming || isStreaming)) {
-          const updated = { ...last, content: fullContent, streaming: isStreaming };
+          const updated = { ...last, content: fullContent, streaming: isStreaming, status: mcpStatus, mcpToolName: mcpToolName ?? last.mcpToolName, mcpCalls: mcpCalls ?? last.mcpCalls };
           if (!streamingAssistantIdRef.current) streamingAssistantIdRef.current = last.id;
           if (!isStreaming) streamingAssistantIdRef.current = null;
           if (!isStreaming && mode === 'chat' && sessionIdRef.current) {
@@ -189,12 +209,19 @@ export function MainLayout() {
         if (streamingAssistantIdRef.current && !target) {
           streamingAssistantIdRef.current = null;
         }
+        const lastAssistant = prev[prev.length - 1];
+        if (lastAssistant?.role === 'assistant' && !lastAssistant.streaming && lastAssistant.content === fullContent) {
+          return prev;
+        }
         const assistantMsg = {
-          id: crypto.randomUUID(),
+          id: lastMessage.messageId || crypto.randomUUID(),
           role: 'assistant',
           content: fullContent,
           time: new Date().toLocaleTimeString(),
           streaming: isStreaming,
+          status: mcpStatus,
+          mcpToolName,
+          mcpCalls,
         };
         streamingAssistantIdRef.current = assistantMsg.id;
         if (!isStreaming) streamingAssistantIdRef.current = null;
@@ -226,6 +253,47 @@ export function MainLayout() {
 
   useEffect(() => scrollToBottom(), [messages]);
 
+  // 左右同步：当 mcpDetail 对应的消息的 mcpCalls 更新时，同步右侧面板并自动切到最新；MCP 检索时自动打开右侧面板
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const streamingWithMcp = last?.role === 'assistant' && last?.streaming && Array.isArray(last?.mcpCalls) && last.mcpCalls.length > 0;
+    if (streamingWithMcp) {
+      const list = last.mcpCalls;
+      if (mcpDetail?.messageId === last.id) {
+        if (JSON.stringify(list) !== JSON.stringify(mcpDetail.mcpCalls)) {
+          setMcpDetail((prev) => (prev ? { ...prev, mcpCalls: list } : null));
+          setMcpTabIndex(list.length > 0 ? list.length - 1 : 0);
+        }
+      } else {
+        setMcpDetail({ call: list[list.length - 1], mcpCalls: list, messageId: last.id, sessionId: currentSessionId });
+        setMcpTabIndex(list.length - 1);
+      }
+    }
+  }, [messages, mcpDetail?.messageId, mcpDetail?.mcpCalls, currentSessionId]);
+
+  // 当对应消息被清空、会话切换或回退时，关闭 MCP 面板，避免出现“孤儿”数据
+  useEffect(() => {
+    if (!mcpDetail) return;
+    const msgExists = messages.some((m) => m.id === mcpDetail.messageId);
+    const sessionMatch = mcpDetail.sessionId === currentSessionId;
+    if (messages.length === 0 || !sessionMatch || !msgExists) {
+      setMcpDetail(null);
+      setMcpTabType('mcp');
+      setMcpTabIndex(0);
+      setMcpPanelClosing(false);
+    }
+  }, [messages, currentSessionId, mcpDetail]);
+
+  const handleCloseMcpPanel = () => setMcpPanelClosing(true);
+  const handleMcpPanelTransitionEnd = (e) => {
+    if (e.propertyName === 'width' && mcpPanelClosing) {
+      setMcpDetail(null);
+      setMcpTabType('mcp');
+      setMcpTabIndex(0);
+      setMcpPanelClosing(false);
+    }
+  };
+
   // 当消息为空且存在会话时，删除该会话（如回退导致清空）
   useEffect(() => {
     if (restoringSession) return;
@@ -249,6 +317,16 @@ export function MainLayout() {
       } catch {}
     };
   }, []);
+
+  // Escape 关闭右键菜单，避免遮挡输入
+  useEffect(() => {
+    if (!contextMenu.open) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') handleCloseContextMenu();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [contextMenu.open]);
 
   // 响应来自各子面板的导航请求（例如技能面板跳转到 MCP 面板）
   useEffect(() => {
@@ -324,7 +402,7 @@ export function MainLayout() {
             awaitingAiResponseRef.current = true;
             streamingAssistantIdRef.current = null;
             lastProcessedEchoRef.current = null;
-            send('message', { content: text });
+            send('message', { content: text, sessionId: sessionIdRef.current || undefined });
           } else {
             setInputValue(text);
           }
@@ -399,18 +477,23 @@ export function MainLayout() {
     awaitingAiResponseRef.current = true;
     streamingAssistantIdRef.current = null;
     lastProcessedEchoRef.current = null;
-    send('message', { content: text, quick: mode === 'chat' ? true : quickMode });
+    send('message', {
+      content: text,
+      quick: mode === 'chat' ? true : quickMode,
+      mcp: mode === 'chat' ? mcpMode : false,
+      sessionId: sid || undefined,
+    });
     setInputValue('');
   };
 
   const handleLoadChatSession = (session) => {
-    setMessages(session.messages || []);
-    setCurrentSessionId(session.id);
-    setSidebarActive('chat');
-    // 重置 WebSocket 相关 ref，避免加载历史后误处理旧的 echo 导致重复消息
+    clearLastMessage?.(); // 最先清除残留 echo，防止 effect 追加重复消息
     awaitingAiResponseRef.current = false;
     streamingAssistantIdRef.current = null;
     lastProcessedEchoRef.current = null;
+    setMessages(session.messages || []);
+    setCurrentSessionId(session.id);
+    setSidebarActive('chat');
     try {
       window.localStorage.setItem('openaui_sidebar_active', 'chat');
     } catch {}
@@ -453,7 +536,7 @@ export function MainLayout() {
             </div>
           </div>
           {sidebarActive === 'chat' && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-auto">
               {currentSessionId && (
                 <button
                   type="button"
@@ -538,8 +621,11 @@ export function MainLayout() {
           ) : sidebarActive === 'model-test' ? (
             <ModelTestPanel />
           ) : (
-            <div className="flex-1 w-full flex flex-col items-center min-h-0 overflow-hidden">
-              <div className="flex-1 w-full max-w-4xl overflow-y-auto px-4 py-4 bg-white">
+            <div className="flex-1 w-full flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 flex min-h-0 overflow-hidden">
+              <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-y-auto chat-scroll-area">
+                <div className="w-full max-w-4xl mx-auto px-4 py-4 bg-white">
                 {restoringSession ? (
                   <div className="flex flex-col items-center justify-center py-16">
                     <p className="text-[var(--input-placeholder)] text-sm">加载对话中...</p>
@@ -560,11 +646,14 @@ export function MainLayout() {
                         time={m.time}
                         index={i}
                         streaming={m.streaming}
+                        status={m.status}
+                        mcpToolName={m.mcpToolName}
+                        mcpCalls={m.mcpCalls}
                         messageId={m.id}
                         sessionId={currentSessionId}
                         memoryId={m.memoryId}
                         showActions={mode === 'chat' && !!currentSessionId}
-                        canRollback={i < messages.length - 1}
+                        canRollback={m.role === 'user' && i < messages.length - 1}
                         showDeepenMemory={m.role === 'assistant'}
                         onRollback={async () => {
                           if (!currentSessionId || !m.id) return;
@@ -587,32 +676,147 @@ export function MainLayout() {
                             }
                           } catch {}
                         }}
+                        onMcpTagClick={(call, idx) => {
+                          const list = m.mcpCalls || [];
+                          const tabIdx = list.findIndex((c) => c === call);
+                          setMcpDetail({ call, mcpCalls: list, messageId: m.id, sessionId: currentSessionId });
+                          setMcpTabType('mcp');
+                          setMcpTabIndex(tabIdx >= 0 ? tabIdx : 0);
+                        }}
                       />
                     ))}
                   </div>
                 )}
                 <div ref={messagesEndRef} />
+                </div>
+                </div>
+                <div className="flex-shrink-0 w-full max-w-4xl px-4 pb-6 pt-4 self-center">
+                  <ChatInputBar
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onSend={handleSend}
+                    inputRef={chatInputRef}
+                    onSkillSelect={handleSkillSelect}
+                    onPlusClick={() => setSidebarActive('skills')}
+                    quickMode={quickMode}
+                    quickOnly
+                    mcpMode={mcpMode}
+                    suiMode={suiMode}
+                    placeholder={voiceActive ? '正在监听，请说话...' : '发消息或输入「/」选择技能'}
+                    voiceActive={voiceActive}
+                    onVoiceToggle={() => {
+                      if (voiceActive) stopRecording();
+                      else startRecording();
+                    }}
+                    disabled={!authenticated || restoringSession}
+                    isStreaming={messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.streaming}
+                    onPause={() => send('stop', {})}
+                  />
+                </div>
               </div>
-              <div className="flex-shrink-0 w-full max-w-4xl px-4 pb-6 pt-4">
-                <ChatInputBar
-                  value={inputValue}
-                  onChange={setInputValue}
-                  onSend={handleSend}
-                  inputRef={chatInputRef}
-                  onSkillSelect={handleSkillSelect}
-                  onPlusClick={() => setSidebarActive('skills')}
-                  quickMode={quickMode}
-                  quickOnly
-                  mcpMode={mcpMode}
-                  suiMode={suiMode}
-                  placeholder={voiceActive ? '正在监听，请说话...' : '发消息或输入「/」选择技能'}
-                  voiceActive={voiceActive}
-                  onVoiceToggle={() => {
-                    if (voiceActive) stopRecording();
-                    else startRecording();
-                  }}
-                  disabled={!authenticated || restoringSession || (messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.streaming)}
-                />
+              {(() => {
+                const list = mcpDetail?.mcpCalls || [];
+                const mcpCount = list.length;
+                const hasAgentData = false; // 有 Agent 检索数据时再展示 Agent tab
+                const displayCall = list[mcpTabIndex] ?? list[0] ?? mcpDetail?.call;
+                const panelOpen = !!mcpDetail && !mcpPanelClosing;
+                return (
+                <div
+                  className="flex-shrink-0 overflow-hidden transition-[width] duration-200 ease-out [contain:layout]"
+                  style={{ width: panelOpen ? '40rem' : 0, minWidth: panelOpen ? '22rem' : 0 }}
+                  onTransitionEnd={handleMcpPanelTransitionEnd}
+                >
+                {mcpDetail && (
+                <div className="w-[40rem] min-w-[22rem] h-full border-l border-[var(--input-bar-border)] flex flex-col bg-white shadow-[-4px_0_12px_rgba(0,0,0,0.06)] overflow-hidden shrink-0">
+                  <div className="flex-shrink-0 flex items-center justify-between border-b border-[var(--input-bar-border)]">
+                    <div className="flex gap-0.5 py-2 px-2 min-w-0">
+                      <button
+                        type="button"
+                        className={`px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap shrink-0 ${
+                          mcpTabType === 'mcp'
+                            ? 'bg-[#e0f2fe] text-[#0369a1] border border-[#7dd3fc]'
+                            : 'bg-[#f8fafc] text-[var(--input-placeholder)] border border-transparent hover:bg-[#f1f5f9]'
+                        }`}
+                        onClick={() => { setMcpTabType('mcp'); setMcpTabIndex(0); }}
+                      >
+                        MCP{mcpCount > 0 ? ` (${mcpCount})` : ''}
+                      </button>
+                      {hasAgentData && (
+                        <button
+                          type="button"
+                          className={`px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap shrink-0 ${
+                            mcpTabType === 'agent'
+                              ? 'bg-[#e0f2fe] text-[#0369a1] border border-[#7dd3fc]'
+                              : 'bg-[#f8fafc] text-[var(--input-placeholder)] border border-transparent hover:bg-[#f1f5f9]'
+                          }`}
+                          onClick={() => setMcpTabType('agent')}
+                        >
+                          Agent
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded hover:bg-[var(--skill-btn-bg)] text-[var(--input-placeholder)] shrink-0"
+                      onClick={handleCloseMcpPanel}
+                      title="关闭"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+                    {mcpTabType === 'mcp' && list.length > 0 && (
+                      <div className="w-32 flex-shrink-0 border-r border-[var(--input-bar-border)] flex flex-col py-2">
+                        <div className="text-[10px] font-medium text-[var(--input-placeholder)] px-2 mb-1">共 {list.length} 个</div>
+                        {list.map((c, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className={`px-2 py-1 text-left text-[11px] truncate ${
+                              mcpTabIndex === i ? 'bg-[#e0f2fe] text-[#0369a1] font-medium' : 'text-[var(--input-placeholder)] hover:bg-[#f1f5f9]'
+                            }`}
+                            onClick={() => setMcpTabIndex(i)}
+                            title={c.toolName}
+                          >
+                            {`[${c.keyword || c.toolName || ''}]`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {hasAgentData && mcpTabType === 'agent' && (
+                      <div className="flex-1 flex items-center justify-center text-[var(--input-placeholder)] text-sm">
+                        暂无 Agent 检索数据
+                      </div>
+                    )}
+                    {mcpTabType === 'mcp' && displayCall && (
+                    <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-3 space-y-3 flex flex-col">
+                      {displayCall.summary && (
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-[var(--skill-btn-text)] mb-1 truncate">AI 总结：{displayCall.toolName}</div>
+                          <p className="text-xs text-[var(--input-placeholder)] leading-relaxed break-words">{displayCall.summary}</p>
+                        </div>
+                      )}
+                      <div className="flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden">
+                        <div className="text-xs font-medium text-[var(--skill-btn-text)] mb-1 truncate">原始返回：{displayCall.toolName}</div>
+                        <pre className="flex-1 min-h-0 min-w-0 text-[11px] text-[var(--input-placeholder)] bg-[#f8fafc] rounded p-2 overflow-auto whitespace-pre-wrap break-all font-mono border border-[var(--input-bar-border)]">
+                          {(() => {
+                            try {
+                              const parsed = JSON.parse(displayCall.result);
+                              return JSON.stringify(parsed, null, 2);
+                            } catch {
+                              return displayCall.result;
+                            }
+                          })()}
+                        </pre>
+                      </div>
+                    </div>
+                    )}
+                  </div>
+                </div>
+                )}
+                </div>
+                );
+              })()}
               </div>
             </div>
           )}
@@ -643,11 +847,16 @@ export function MainLayout() {
 
       {contextMenu.open && (
         <div
-          className="fixed inset-0 z-40 pointer-events-none"
+          className="fixed inset-0 z-40"
+          onClick={handleCloseContextMenu}
+          onContextMenu={(e) => { e.preventDefault(); handleCloseContextMenu(); }}
+          role="presentation"
+          aria-hidden
         >
           <div
-            className="absolute z-50 pointer-events-auto bg-white border border-[var(--input-bar-border)] rounded-md shadow-lg py-1 text-xs text-[var(--skill-btn-text)]"
+            className="absolute z-50 bg-white border border-[var(--input-bar-border)] rounded-md shadow-lg py-1 text-xs text-[var(--skill-btn-text)]"
             style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"

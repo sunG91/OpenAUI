@@ -7,9 +7,9 @@
 const fs = require('fs');
 const path = require('path');
 const { getBaiduOcrCredentials } = require('../apikeys-store');
+const { getDataDir } = require('../data-path');
 
-const DATA_DIR = path.join(__dirname, '../../data');
-const TOKEN_FILE = path.join(DATA_DIR, 'baidu-ocr-token.json');
+const TOKEN_FILE = path.join(getDataDir(), 'baidu-ocr-token.json');
 
 /** 清除缓存的 token（保存新 AK/SK 时调用） */
 function clearCachedToken() {
@@ -24,8 +24,9 @@ const OCR_URL = 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic';
 const REFRESH_BEFORE_SEC = 5 * 60;
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = path.dirname(TOKEN_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 }
 

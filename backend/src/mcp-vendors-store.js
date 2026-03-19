@@ -1,6 +1,6 @@
 /**
- * MCP 厂商配置（仅本地文件）：
- * backend/src/data/mcp-vendors.json
+ * MCP 厂商配置（仅本地文件）
+ * 打包后使用用户可写目录
  * 结构示例：
  * {
  *   "httpVendors": [
@@ -10,9 +10,9 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { getDataDir } = require('./data-path');
 
-const DATA_DIR = path.join(__dirname, 'data');
-const FILE_PATH = path.join(DATA_DIR, 'mcp-vendors.json');
+const FILE_PATH = path.join(getDataDir(), 'mcp-vendors.json');
 
 const defaults = {
   httpVendors: [
@@ -26,7 +26,8 @@ const defaults = {
 };
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = path.dirname(FILE_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function readMcpVendors() {

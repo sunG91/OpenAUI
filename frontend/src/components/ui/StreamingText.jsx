@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { MarkdownBlock } from './ModelTestPanel/MarkdownBlock';
+import { ContentWithMcpTags } from './ContentWithMcpTags';
 
 const TICK_MS = 18;
 const STEP_FAST = 8;
@@ -21,6 +22,9 @@ export function StreamingText({
   showCursorWhenCaughtUp = false,
   /** 跳过动画，直接展示全文 */
   instant = false,
+  /** MCP 调用记录，用于正文中 [工具名] 识别为可点击标签 */
+  mcpCalls,
+  onMcpTagClick,
 }) {
   const [displayedLength, setDisplayedLength] = useState(0);
 
@@ -57,7 +61,16 @@ export function StreamingText({
     <div className={`streaming-text-wrapper ${className}`}>
       {visible ? (
         markdown ? (
-          <MarkdownBlock className="streaming-text-content">{visible}</MarkdownBlock>
+          mcpCalls?.length > 0 ? (
+            <ContentWithMcpTags
+              content={visible}
+              mcpCalls={mcpCalls}
+              onMcpTagClick={onMcpTagClick}
+              className="streaming-text-content"
+            />
+          ) : (
+            <MarkdownBlock className="streaming-text-content">{visible}</MarkdownBlock>
+          )
         ) : (
           <>
             {rest ? (

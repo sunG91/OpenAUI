@@ -1,16 +1,17 @@
 /**
- * API Key 本地存储 - 存到 backend/data/apikeys.json
- * 查看时仅返回脱敏（加密查看）
+ * API Key 本地存储 - 存到 data/apikeys.json
+ * 打包后使用用户可写目录（OPENAUI_DATA_DIR），避免 401 等因 Key 未正确保存
  */
 const fs = require('fs');
 const path = require('path');
+const { getDataDir } = require('./data-path');
 
-const DATA_DIR = path.join(__dirname, '../data');
-const FILE_PATH = path.join(DATA_DIR, 'apikeys.json');
+const FILE_PATH = path.join(getDataDir(), 'apikeys.json');
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  const dir = path.dirname(FILE_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
 }
 

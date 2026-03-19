@@ -60,3 +60,22 @@ export async function deleteChatSession(sessionId) {
     method: 'DELETE',
   });
 }
+
+/** 获取上次选中的会话 id（持久化到 config.json） */
+export async function getLastSelectedSessionId() {
+  const res = await fetch(`${API_BASE}/api/config/uiState`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data.uiState?.lastSelectedSessionId || null;
+}
+
+/** 保存当前选中的会话 id 到 config.json */
+export async function saveLastSelectedSessionId(sessionId) {
+  const res = await fetch(`${API_BASE}/api/config`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ section: 'uiState', updates: { lastSelectedSessionId: sessionId || null } }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+}

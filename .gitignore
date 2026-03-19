@@ -54,6 +54,7 @@ frontend/dist/
 frontend/dist-app/
 frontend/release/
 frontend/build/
+frontend/build/node-portable.zip
 frontend/coverage/
 frontend/.eslintcache
 frontend/.vite/
@@ -114,6 +115,9 @@ backend/vosk/model/
 *.tar.gz
 *.tgz
 *.7z
+
+# --- Node 便携版（无 Node 用户自动下载） ---
+.node-portable/
 
 # --- Misc ---
 *.bak

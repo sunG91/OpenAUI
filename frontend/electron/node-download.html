@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open AUI - 准备运行环境</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+    .desc {
+      font-size: 14px;
+      color: #a0a0a0;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .progress-wrap {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #60a5fa);
+      border-radius: 8px;
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+    .percent {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .status {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 16px;
+    }
+    .error {
+      color: #f87171;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Open AUI</h1>
+    <p class="desc">首次运行正在解压并配置运行环境，请稍候...</p>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="percent" id="percent">0%</div>
+    <div class="status" id="status">正在解压...</div>
+    <div class="error" id="error" style="display:none"></div>
+  </div>
+  <script>
+    const progressBar = document.getElementById('progressBar');
+    const percentEl = document.getElementById('percent');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+
+    if (window.nodeDownloadAPI) {
+      window.nodeDownloadAPI.onProgress((data) => {
+        const pct = data.total ? Math.round((data.loaded / data.total) * 100) : 0;
+        progressBar.style.width = pct + '%';
+        percentEl.textContent = pct + '%';
+        statusEl.textContent = data.total ? '正在解压...' : '正在配置...';
+      });
+      window.nodeDownloadAPI.onDone(() => {
+        progressBar.style.width = '100%';
+        percentEl.textContent = '100%';
+        statusEl.textContent = '准备完成，正在启动...';
+      });
+      window.nodeDownloadAPI.onError((err) => {
+        errorEl.textContent = '下载失败: ' + (err || '未知错误');
+        errorEl.style.display = 'block';
+        statusEl.style.display = 'none';
+      });
+    }
+  </script>
+</body>
+</html>

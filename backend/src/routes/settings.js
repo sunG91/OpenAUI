@@ -25,7 +25,7 @@ function mountSettingsRoutes(app) {
   app.get('/api/config/:section', (req, res) => {
     try {
       const { section } = req.params;
-      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools', 'aui'];
+      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools', 'aui', 'uiState'];
       if (!valid.includes(section)) {
         return res.status(400).json({ success: false, error: `无效 section: ${section}` });
       }
@@ -42,7 +42,7 @@ function mountSettingsRoutes(app) {
       if (!section || typeof section !== 'string') {
         return res.status(400).json({ success: false, error: '缺少 section' });
       }
-      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools', 'aui'];
+      const valid = ['mcp', 'skill', 'skillsLibrary', 'voice', 'model', 'tools', 'aui', 'uiState'];
       if (!valid.includes(section)) {
         return res.status(400).json({ success: false, error: `无效 section: ${section}` });
       }

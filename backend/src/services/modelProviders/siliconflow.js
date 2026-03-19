@@ -13,18 +13,15 @@ const SILICONFLOW_BASE_URL = 'https://api.siliconflow.cn/v1';
  *   modelId: string,
  *   message?: string,
  *   messages?: any[],
- *   stream: boolean
+ *   stream?: boolean,
+ *   tools?: any[]
  * }}
- * @returns {Promise<{ content: string, reasoning_content?: string }> | AsyncGenerator}
+ * @returns {Promise<{ content: string, reasoning_content?: string, tool_calls?: any[] }> | AsyncGenerator}
  */
 async function chat(options) {
-  const { apiKey, modelId, message, messages, stream = false } = options;
+  const { apiKey, modelId, message, messages, stream = false, tools } = options;
   const client = new OpenAI({ baseURL: SILICONFLOW_BASE_URL, apiKey: apiKey.trim() });
 
-  /** 兼容两种模式：
-   * 1）传统纯文本：仅传 message 字符串；
-   * 2）多模态：直接传完整 messages 数组（可包含多张 image_url / video_url / audio_url）。
-   */
   let finalMessages;
   if (Array.isArray(messages) && messages.length > 0) {
     finalMessages = messages;
@@ -36,25 +33,26 @@ async function chat(options) {
     ];
   }
 
-  if (stream) {
-    const streamResult = await client.chat.completions.create({
-      model: modelId,
-      messages: finalMessages,
-      stream: true
-    });
-    // 返回 async iterable，由上层 route 使用 SSE 向前端推送
-    return streamResult;
-  }
-
-  const completion = await client.chat.completions.create({
+  const createOpts = {
     model: modelId,
     messages: finalMessages,
-    stream: false
-  });
+    stream,
+  };
+  if (Array.isArray(tools) && tools.length > 0) {
+    createOpts.tools = tools;
+    createOpts.tool_choice = 'auto';
+  }
+
+  if (stream) {
+    return client.chat.completions.create(createOpts);
+  }
+
+  const completion = await client.chat.completions.create(createOpts);
   const msg = completion.choices?.[0]?.message ?? {};
   return {
     content: msg.content ?? '',
-    reasoning_content: msg.reasoning_content ?? ''
+    reasoning_content: msg.reasoning_content ?? '',
+    tool_calls: msg.tool_calls,
   };
 }
 

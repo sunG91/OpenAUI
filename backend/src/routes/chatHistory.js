@@ -57,11 +57,11 @@ router.post('/', (req, res) => {
 /** 追加消息 POST /api/chat-history/:sessionId/messages */
 router.post('/:sessionId/messages', (req, res) => {
   try {
-    const { role, content, time, id } = req.body || {};
+    const { role, content, time, id, mcpCalls } = req.body || {};
     if (!role || content == null) {
       return res.status(400).json({ success: false, error: '缺少 role 或 content' });
     }
-    const msg = appendMessage(req.params.sessionId, { id, role, content, time });
+    const msg = appendMessage(req.params.sessionId, { id, role, content, time, mcpCalls });
     if (!msg) return res.status(404).json({ success: false, error: '会话不存在' });
     return res.json(msg);
   } catch (e) {
