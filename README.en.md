@@ -57,6 +57,17 @@ Works on Windows, Linux, and macOS.
 
 > **Note**: Memory storage uses Vectra (Node.js native, no Python). ultralytics (vision model conversion) requires Python.
 
+### Pre-built release (optional)
+
+If installing dependencies and building from source feels heavy, you can download **`release.zip`** (pre-built baseline): unzip and run **Open AUI.exe**, or use it as a starting point for your own fork.
+
+| Method | Link / hint |
+|--------|-------------|
+| **Quark Drive** | [https://pan.quark.cn/s/9fbfe0343090](https://pan.quark.cn/s/9fbfe0343090) (shared file: `release.zip`) |
+| **Quark app** | Copy `/~7ab33M8om1~/` and open it in the Quark app to open the same share |
+
+> You still need to configure vendor API keys inside the app. Forking / redistribution must follow this repo’s license.
+
 ### Option 1: Electron desktop app (recommended)
 
 Double‑click **`启动 Open AUI.bat`** to start everything with one click, or run manually:
