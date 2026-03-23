@@ -23,6 +23,13 @@ export function AuiIntroTab() {
         </ul>
       </section>
       <section>
+        <h3 className="text-base font-semibold mb-2">天枢测试（隔离沙箱）</h3>
+        <p className="text-sm leading-relaxed text-[var(--input-placeholder)]">
+          打开「天枢测试」标签进入 <strong className="text-[var(--skill-btn-text)]">AUI 画布工作台</strong>：全架构节点流（React Flow）、侧栏记录思考与消息帧；
+          推演通过后，可勾选「允许在本机执行 Shell」并调用后端 <code className="text-xs bg-slate-100 px-1 rounded">/api/tools/shell</code> 在真实环境执行模型给出的命令（请自担风险）。
+        </p>
+      </section>
+      <section>
         <h3 className="text-base font-semibold mb-2">架构选择</h3>
         <p className="text-sm leading-relaxed text-[var(--input-placeholder)]">
           切换到「架构选择」标签页，可查看并选择不同的 AUI 架构。每种架构定义了决策中枢与执行部门的组织方式，

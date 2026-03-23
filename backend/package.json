@@ -1,6 +1,6 @@
 {
   "name": "openaui-backend",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Open AUI 后端 WebSocket 服务",
   "license": "Apache-2.0",
   "main": "src/index.js",

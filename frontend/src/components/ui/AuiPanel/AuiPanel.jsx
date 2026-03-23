@@ -1,14 +1,16 @@
 /**
  * AUI 模块 - 产品核心与架构选择
- * Tab1: AUI 介绍 | Tab2: 架构选择
+ * Tab1: AUI 介绍 | Tab2: 架构选择 | Tab3: 天枢测试（隔离沙箱）
  */
 import { useState } from 'react';
 import { AuiIntroTab } from './AuiIntroTab';
 import { AuiArchitectureTab } from './AuiArchitectureTab';
+import { AuiTianshuSandboxTab } from './AuiTianshuSandboxTab';
 
 const TABS = [
   { id: 'intro', label: 'AUI 介绍' },
   { id: 'architecture', label: '架构选择' },
+  { id: 'tianshu-test', label: '天枢测试' },
 ];
 
 export function AuiPanel({ className = '' }) {
@@ -39,9 +41,16 @@ export function AuiPanel({ className = '' }) {
       </div>
 
       {/* Tab 内容区 */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto px-4 py-6">
+      <div
+        className={`flex-1 flex flex-col min-h-0 ${
+          activeTab === 'tianshu-test'
+            ? 'overflow-hidden h-full p-2 sm:p-3 bg-transparent'
+            : 'overflow-y-auto px-4 py-6'
+        }`}
+      >
         {activeTab === 'intro' && <AuiIntroTab />}
         {activeTab === 'architecture' && <AuiArchitectureTab />}
+        {activeTab === 'tianshu-test' && <AuiTianshuSandboxTab />}
       </div>
     </div>
   );
