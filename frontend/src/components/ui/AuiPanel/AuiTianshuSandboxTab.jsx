@@ -46,6 +46,26 @@ function deptLabel(arch, deptId) {
 }
 
 /**
+ * 从「powershell … -Command …」单行中提取脚本正文；已含 -EncodedCommand 时返回 null（走原样 command）。
+ */
+function tryExtractPowerShellScript(cmd) {
+  const s = String(cmd).trim();
+  if (!/^(powershell|pwsh)(\.exe)?\s/i.test(s)) return null;
+  if (/\s-(?:EncodedCommand|e)\s/i.test(s)) return null;
+  const m = s.match(/\s-(?:Command|c)\s+/i);
+  if (!m) return null;
+  let body = s.slice(m.index + m[0].length).trim();
+  if (body.length >= 2) {
+    const q = body[0];
+    if ((q === '"' || q === "'") && body[body.length - 1] === q) {
+      body = body.slice(1, -1);
+      if (q === "'") body = body.replace(/''/g, "'");
+    }
+  }
+  return body ? body : null;
+}
+
+/**
  * 流式调用模型：侧栏实时追加 delta，返回完整 content / reasoning（供 parseLlmJson）
  */
 function streamModelToLogs({
@@ -264,7 +284,11 @@ export function AuiTianshuSandboxTab() {
           body: cmd,
         });
 
-        const res = await runShell(cmd, { timeout: 60000 });
+        const psBody = platform === 'win32' ? tryExtractPowerShellScript(cmd) : null;
+        const res = await runShell(psBody != null ? psBody : cmd, {
+          timeout: 60000,
+          ...(psBody != null ? { powershellScript: true } : {}),
+        });
         results.push({ ok: res.success !== false, step: i + 1, res });
         pushLog({
           type: 'exec',

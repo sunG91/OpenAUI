@@ -53,6 +53,15 @@ function assertAllowedFsPath(absPath) {
   return { ok: true };
 }
 
+/**
+ * Windows：用 -EncodedCommand 执行 PowerShell 脚本，避免经 cmd 传 -Command 时引号/中文被拆坏。
+ * 编码规则与 PowerShell 一致：UTF-16LE → Base64。
+ */
+function buildEncodedPowerShellCommandLine(script) {
+  const b64 = Buffer.from(String(script), 'utf16le').toString('base64');
+  return `powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${b64}`;
+}
+
 async function runCmd(command, opts = {}) {
   const timeout = typeof opts.timeout === 'number' && opts.timeout > 0
     ? Math.min(Math.floor(opts.timeout), MAX_TIMEOUT_MS)
@@ -88,14 +97,25 @@ function mountToolsRoutes(app) {
 
   /**
    * POST /api/tools/shell
-   * Body: { command: string, cwd?: string, timeout?: number }
-   * 在服务端执行 shell 命令，返回 stdout、stderr、code（Windows 下 stderr/stdout 已按 GBK 解码）
+   * Body: { command?: string, powershellScript?: string, cwd?: string, timeout?: number }
+   * - command：任意 shell 一行（默认）
+   * - powershellScript：仅 Windows；脚本正文，服务端用 -EncodedCommand（UTF-16LE Base64）执行，不经 cmd 拆引号
    */
   app.post('/api/tools/shell', async (req, res) => {
     try {
-      const { command, cwd, timeout: rawTimeout } = req.body || {};
-      if (typeof command !== 'string' || !command.trim()) {
-        return res.status(400).json({ success: false, error: '缺少 command 或为空' });
+      const { command, powershellScript, cwd, timeout: rawTimeout } = req.body || {};
+      const ps = typeof powershellScript === 'string' ? powershellScript.trim() : '';
+      const cmd = typeof command === 'string' ? command.trim() : '';
+      let execLine;
+      if (ps) {
+        if (!isWin) {
+          return res.status(400).json({ success: false, error: 'powershellScript 仅支持 Windows 服务端' });
+        }
+        execLine = buildEncodedPowerShellCommandLine(ps);
+      } else if (cmd) {
+        execLine = cmd;
+      } else {
+        return res.status(400).json({ success: false, error: '缺少 command / powershellScript 或为空' });
       }
       const workDir = typeof cwd === 'string' && cwd.trim() ? path.resolve(cwd.trim()) : undefined;
       let timeout = DEFAULT_TIMEOUT_MS;
@@ -106,7 +126,7 @@ function mountToolsRoutes(app) {
       if (workDir) options.cwd = workDir;
       if (isWin) options.encoding = 'buffer';
 
-      const { stdout, stderr } = await execAsync(command.trim(), options);
+      const { stdout, stderr } = await execAsync(execLine, options);
       return res.json({
         success: true,
         stdout: decodeOutput(stdout),

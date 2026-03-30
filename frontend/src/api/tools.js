@@ -60,13 +60,21 @@ export async function getToolsProjectRoot() {
   return data.projectRoot;
 }
 
-/** 任意 Shell 命令执行（控制台工具使用） */
+/**
+ * 任意 Shell 命令执行（控制台工具使用）
+ * @param {string} command
+ * @param {{ cwd?: string, timeout?: number, powershellScript?: boolean }} [options]
+ * - powershellScript: true 时把 command 当作 PowerShell 脚本正文，由 Windows 服务端用 -EncodedCommand 执行（避免引号/中文经 cmd 损坏）
+ */
 export async function runShell(command, options = {}) {
-  const { cwd, timeout } = options;
+  const { cwd, timeout, powershellScript } = options;
+  const body = powershellScript
+    ? { powershellScript: String(command).trim(), cwd, timeout }
+    : { command: String(command).trim(), cwd, timeout };
   const res = await fetch(`${API_BASE}/api/tools/shell`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: String(command).trim(), cwd, timeout }),
+    body: JSON.stringify(body),
   });
   const data = await parseJsonResponse(res);
   return data;

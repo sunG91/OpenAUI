@@ -5,6 +5,11 @@ function escapePsString(s) {
   return String(s).replace(/'/g, "''");
 }
 
+function encodedPowerShellArgs(script) {
+  const b64 = Buffer.from(String(script), 'utf16le').toString('base64');
+  return ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', b64];
+}
+
 async function listSapiVoices() {
   if (process.platform !== 'win32') return [];
   const ps = `
@@ -15,7 +20,7 @@ $synth.Dispose();
 $voices | ConvertTo-Json -Compress
 `;
   return new Promise((resolve, reject) => {
-    const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
+    const p = spawn('powershell', encodedPowerShellArgs(ps), {
       windowsHide: true,
     });
     let stdout = '';
@@ -51,7 +56,7 @@ $synth.Dispose();
 `;
 
   return new Promise((resolve, reject) => {
-    const p = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', ps], {
+    const p = spawn('powershell', encodedPowerShellArgs(ps), {
       windowsHide: true,
     });
     let stderr = '';
